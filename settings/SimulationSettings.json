@@ -1,7 +1,7 @@
 {
     "ID": 0,
-    "SimulationName": "CustomDrone1",
-    "RunLength": 27,
+    "SimulationName": "Multi Agent Demonstration",
+    "RunLength": 100,
     "Scenario": {
         "Name": "DataCollection",
         "Options": {
@@ -14,7 +14,8 @@
     "Environment": {
         "Name": "MountainVillage",
         "StartingLevelName": "Level1",
-        "StreamVideo": true
+        "StreamVideo": true,
+        "Options": {}
     },
     "Data": {
         "VehicleState": {
@@ -22,43 +23,22 @@
         }
     },
     "Agents": {
-        "Drone1": {
+        "Agent1": {
             "Vehicle": "Multirotor",
             "VehiclePhysicsProfile": "CodexX500",
             "AutoPilot": "SWARM",
             "VehicleOptions": {
                 "RunROSNode": false,
+                "UseLocalPX4": false,
                 "PlanningCoordinateFrame": "NED"
             },
-            "Sensors": {
-                "Cameras": {
-                    "Camera1": {
-                        "Enabled": true,
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0,
-                        "Roll": 0.0,
-                        "Pitch": 0.0,
-                        "Yaw": 0.0,
-                        "Width": 640,
-                        "Height": 480,
-                        "FOV_Degrees": 90.0,
-                        "FramesPerSecond": 30,
-                        "Record": false,
-                        "VideoName": "",
-                        "PublishPose": false,
-                        "OutputType": "Video",
-                        "ImageType": "Scene",
-                        "Method": "Colosseum"
-                    }
-                }
-            },
+            "Sensors": {},
             "Controller": {
                 "Name": "PID",
                 "Gains": {
                     "P": 0.95,
                     "I": 0.05,
-                    "D": 0.1
+                    "D": 0.05
                 }
             },
             "StartingPosition": {
@@ -70,6 +50,31 @@
                 "Yaw": 0.0
             },
             "SoftwareModules": {
+                "HighLevelBehavior": {
+                    "Algorithm": {
+                        "ClassName": "PathFollowing",
+                        "Parameters": {
+                            "completed_waypoint_distance": 0.25
+                        },
+                        "Level": 1,
+                        "States": [],
+                        "InputArgs": [
+                            "Trajectory"
+                        ],
+                        "ReturnValues": [
+                            "Position",
+                            "Heading",
+                            "Speed"
+                        ]
+                    },
+                    "Parameters": {},
+                    "Publishes": [
+                        "MovementCommand"
+                    ],
+                    "Subscribes": [
+                        "AgentState"
+                    ]
+                },
                 "LowLevelPathPlanning": {
                     "Algorithm": {
                         "ClassName": "PassThroughPlanner",
@@ -92,12 +97,141 @@
                         "AgentState",
                         "MovementCommand"
                     ]
+                }
+            }
+        },
+        "Agent2": {
+            "Vehicle": "Multirotor",
+            "VehiclePhysicsProfile": "CodexX500",
+            "AutoPilot": "SWARM",
+            "VehicleOptions": {
+                "RunROSNode": false,
+                "UseLocalPX4": false,
+                "PlanningCoordinateFrame": "NED"
+            },
+            "Sensors": {},
+            "Controller": {
+                "Name": "PID",
+                "Gains": {
+                    "P": 0.95,
+                    "I": 0.2,
+                    "D": 0.3
+                }
+            },
+            "StartingPosition": {
+                "X": -3.0,
+                "Y": 3.0,
+                "Z": -0.01,
+                "Roll": 0.0,
+                "Pitch": 0.0,
+                "Yaw": 0.0
+            },
+            "SoftwareModules": {
+                "HighLevelBehavior": {
+                    "Algorithm": {
+                        "ClassName": "PathFollowing",
+                        "Parameters": {
+                            "completed_waypoint_distance": 0.25
+                        },
+                        "Level": 1,
+                        "States": [],
+                        "InputArgs": [
+                            "Trajectory"
+                        ],
+                        "ReturnValues": [
+                            "Position",
+                            "Heading",
+                            "Speed"
+                        ]
+                    },
+                    "Parameters": {},
+                    "Publishes": [
+                        "MovementCommand"
+                    ],
+                    "Subscribes": [
+                        "AgentState"
+                    ]
+                },
+                "LowLevelPathPlanning": {
+                    "Algorithm": {
+                        "ClassName": "PassThroughPlanner",
+                        "Parameters": {},
+                        "Level": 1,
+                        "States": [],
+                        "InputArgs": [
+                            "MovementCommand"
+                        ],
+                        "ReturnValues": [
+                            "MovementCommand"
+                        ]
+                    },
+                    "Parameters": {
+                        "completed_waypoint_distance": 0.25,
+                        "TakeoffAltitude": 0.1
+                    },
+                    "Publishes": [],
+                    "Subscribes": [
+                        "AgentState",
+                        "MovementCommand"
+                    ]
+                }
+            }
+        },
+        "Agent3": {
+            "Vehicle": "Multirotor",
+            "VehiclePhysicsProfile": "CodexX500",
+            "AutoPilot": "SWARM",
+            "VehicleOptions": {
+                "RunROSNode": false,
+                "UseLocalPX4": false,
+                "PlanningCoordinateFrame": "NED"
+            },
+            "Sensors": {},
+            "Controller": {
+                "Name": "PID",
+                "Gains": {
+                    "P": 0.95,
+                    "I": 0.2,
+                    "D": 0.3
+                }
+            },
+            "StartingPosition": {
+                "X": -3.0,
+                "Y": -3.0,
+                "Z": -0.01,
+                "Roll": 0.0,
+                "Pitch": 0.0,
+                "Yaw": 0.0
+            },
+            "SoftwareModules": {
+                "LowLevelPathPlanning": {
+                    "Algorithm": {
+                        "ClassName": "PassThroughPlanner",
+                        "Parameters": {},
+                        "Level": 1,
+                        "States": [],
+                        "InputArgs": [
+                            "MovementCommand"
+                        ],
+                        "ReturnValues": [
+                            "MovementCommand"
+                        ]
+                    },
+                    "Parameters": {
+                        "completed_waypoint_distance": 0.25,
+                        "TakeoffAltitude": 0.1
+                    },
+                    "Publishes": [],
+                    "Subscribes": [
+                        "AgentState",
+                        "MovementCommand"
+                    ]
                 },
                 "HighLevelBehavior": {
                     "Algorithm": {
                         "ClassName": "PathFollowing",
                         "Parameters": {
-                            "completed_waypoint_distance": 1.25
+                            "completed_waypoint_distance": 0.25
                         },
                         "Level": 1,
                         "States": [],

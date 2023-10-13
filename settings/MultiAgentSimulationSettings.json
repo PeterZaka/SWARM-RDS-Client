@@ -42,7 +42,7 @@
             "Sensors": {
                 "Cameras": {
                     "Camera1": {
-                        "Enabled": false,
+                        "Enabled": true,
                         "PublishPose": false,
                         "X": 0.35,
                         "Y": 0.0,
@@ -179,7 +179,7 @@
             "Sensors": {
                 "Cameras": {
                     "Camera1": {
-                        "Enabled": false,
+                        "Enabled": true,
                         "PublishPose": false,
                         "X": 0.35,
                         "Y": 0.0,
