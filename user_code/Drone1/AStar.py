@@ -15,6 +15,8 @@ import matplotlib.ticker as ticker
 import time
 import logging
 
+import copy
+
 from SWARMRDS.utilities.algorithm_utils import Algorithm
 from SWARMRDS.utilities.data_classes import Trajectory, MovementCommand, PosVec3
 from SWARMRDS.utilities.log_utils import UserLogger
@@ -51,9 +53,6 @@ class AStar(Algorithm):
         # We are in NED Coordinates so -100 is 100 meters behind the starting
         # point
         self.starting_position = starting_point  # Position you start in NED in meters
-        self.min_x, self.min_y = -map_size[0], -map_size[1]
-        self.max_x, self.max_y = map_size[0], map_size[1]
-        self.x_width, self.y_width = map_size[0] * 2, map_size[1] * 2
         self.motion = self.get_motion_model()
         self.flight_altitude = flight_altitude
         self.executing_trajectory = False
@@ -91,11 +90,11 @@ class AStar(Algorithm):
             # Plan for the trajectory
             # We start at X=0 and Y=0 in NED coordiantes, but that is map_size[0], map_size[1] in the map
             # We also must make sure that we offset our goal point as well
-            self.log.log_message("Requesting a Trajectory from the planner")
-            trajectory = self.planning(self.position.X + int(self.map_size[0]) + int(self.starting_position[0]),
-                                       self.position.Y + int(self.map_size[1]) + int(self.starting_position[1]),
-                                       self.goal_point.X + int(self.map_size[0]) + int(self.starting_position[0]),
-                                       self.goal_point.Y + int(self.map_size[1]) + int(self.starting_position[1]))
+            self.log.log_message("Requesting a Trajectory from the planner")                
+
+            trajectory = self.planning(self.position.X, self.position.Y,
+                                       self.goal_point.X, self.goal_point.Y)
+            
             self.log.log_message("Trajectory found!")
             self.log.log_message(trajectory.displayPretty())
             self.executing_trajectory = True
@@ -125,17 +124,17 @@ class AStar(Algorithm):
             gx: goal x position [m]
             gy: goal y position [m]
         output:
-            rx: x position list of the final path
-            ry: y position list of the final path
+            trajectory
         """
 
-        start_node = self.Node(self.calc_xy_index(sx, self.min_x),
-                               self.calc_xy_index(sy, self.min_y), 0.0, -1)
-        goal_node = self.Node(self.calc_xy_index(gx, self.min_x),
-                              self.calc_xy_index(gy, self.min_y), 0.0, -1)
+        start_x, start_y = self.calc_real_to_array((sx, sy))
+        start_node = self.Node(start_x, start_y, 0.0, -1)
+
+        goal_x, goal_y = self.calc_real_to_array((gx, gy))
+        goal_node = self.Node(goal_x, goal_y, 0.0, -1)
 
         open_set, closed_set = dict(), dict()
-        print("Grid index is {}".format(self.calc_grid_index(start_node)))
+        self.log.log_message("Grid index is {}".format(self.calc_grid_index(start_node)))
         open_set[self.calc_grid_index(start_node)] = start_node
         iteration = 0
         while True:
@@ -191,32 +190,41 @@ class AStar(Algorithm):
         # generate final course
         trajectory = Trajectory()
         position = PosVec3()
-        position.X = self.calc_grid_position(goal_node.x, self.min_x)
-        position.Y = self.calc_grid_position(goal_node.y, self.min_y)
+        position.X, position.Y = self.calc_array_to_real((goal_node.x, goal_node.y))
         position.Z = self.flight_altitude
         
         command = MovementCommand(position=position, speed=self.agent_speed)
         trajectory.points.append(command)
         parent_index = goal_node.parent_index
         
-        traj_point_index = 0
+
+        PATH = []
+
         while parent_index != -1:
             position = PosVec3()
             n = closed_set[parent_index]
-            position.X = self.calc_grid_position(n.x, self.min_x)
-            position.Y = self.calc_grid_position(n.y, self.min_y)
+            PATH.append([n.y, n.x])
+
+            position.X, position.Y = self.calc_array_to_real((n.x, n.y))
             position.Z = self.flight_altitude
             command = MovementCommand(position=position, speed=self.agent_speed)
             trajectory.points.append(command)
-            traj_point_index += 1
             parent_index = n.parent_index
 
-        # We go from goal to start, so reverse this so we fly start to
-        # goal
+        # DEBUGGING
+        grid = copy.deepcopy(self.obstacle_map)
+        for tup in PATH:
+            grid[tup[0]][tup[1]] = 2
+        for r in range(len(grid)):
+            string = ''
+            for c in range(len(grid[0])):
+                string += str(grid[r][c])
+            self.log.log_message(string)
+
+        # We go from goal to start, so reverse this so we fly start to goal
         trajectory.points.reverse()
 
-        # # Downsample the points by 2
-        # new_points = list()
+        # calculate the headings for each point
         for i, point in enumerate(trajectory.points):
             if i == 0:
                 heading = np.degrees(np.arctan2(point.position.Y - self.position.Y, point.position.X - self.position.X))
@@ -224,9 +232,6 @@ class AStar(Algorithm):
                 heading = np.degrees(np.arctan2(point.position.Y - trajectory.points[i - 1].position.Y, point.position.X -  trajectory.points[i - 1].position.X))
             
             trajectory.points[i].heading = heading
-            # print(heading, trajectory.points[i].heading)
-
-        # trajectory.points = new_points
 
         return trajectory
 
@@ -236,43 +241,45 @@ class AStar(Algorithm):
         d = w * math.hypot(n1.x - n2.x, n1.y - n2.y)
         return d
 
-    def calc_grid_position(self, index, min_position):
+    def calc_array_to_real(self, position: tuple):
         """
-        calc grid position
-        :param index:
-        :param min_position:
-        :return:
+        Go from numpy array to real world
+        input:
+            position: (x, y) [grid]
+        output:
+            real_position: (x, y) [m]
         """
-        pos = index * self.resolution + min_position + self.map_size[0]
-        return pos
+        return (int((position[0] - self.map_size[0]) * self.resolution),
+                int((position[1] - self.map_size[1]) * self.resolution))
 
-    def calc_xy_index(self, position: tuple, min_pos):
-        if min_pos > 0:
-            return round((position - min_pos) / self.resolution)
-        else:
-            return round((position + min_pos) / self.resolution)
+    def calc_real_to_array(self, position: tuple):
+        """""
+        Go from real world to numpy array
+        input:
+            position: (x, y) [m]
+        output:
+            array_position: (x, y) [grid]
+        """
+        return (int(self.map_size[0] + position[0] / self.resolution),
+                int(self.map_size[1] + position[1] / self.resolution))
 
     def calc_grid_index(self, node: Node):
-        return (node.y - self.min_y) * self.y_width + (node.x - self.min_x)
+        return node.y * self.map_size[1] * 2 + node.x
 
     def verify_node(self, node: Node):
-        px = self.calc_grid_position(node.x, self.min_x)
-        py = self.calc_grid_position(node.y, self.min_y)
-        # print(px, py)
-        if px < self.min_x:
+        if node.x < 0:
             return False
-        elif py < self.min_y:
+        elif node.x >= len(self.obstacle_map[0]):
             return False
-        elif px >= self.max_x:
+        elif node.y < 0:
             return False
-        elif py >= self.max_y:
+        elif node.y >= len(self.obstacle_map):
             return False
 
         # collision check
         # Numpy is row major so first index is the Y axis and we still need
         # to be sure to offset the points when we check the map
-        if self.obstacle_map[node.y + int(self.map_size[1]) + int(self.starting_position[1])][node.x + int(self.map_size[0]) + int(self.starting_position[0])]:
-            print("Collided")
+        if self.obstacle_map[node.y][node.x]:
             return False
 
         return True
@@ -290,55 +297,3 @@ class AStar(Algorithm):
                   [1, 1, math.sqrt(2)]]
 
         return motion
-
-
-def plot_trajectory(x_points: list, y_points: list, off_set_x: float, off_set_y: float):
-    """
-    Plot the calculated trajectory, scaling the points as the saved
-    png image is not exactly to scale with the coordinates
-    """
-    img = plt.imread("maps/occupancy_map.png")
-    plt.imshow(img)
-    fig = plt.gcf()
-    
-    for ax in fig.axes:
-        # ax.axis('off')
-        # ax.margins(0,0)
-        # ax.xaxis.set_major_locator(plt.NullLocator())
-        # ax.yaxis.set_major_locator(plt.NullLocator())
-        # scale = 1.925
-        ticks_x = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(1*(x - off_set_x)/scale))
-        ticks_y = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(1*(x - off_set_y)/scale))
-        ax.xaxis.set_major_formatter(ticks_x)
-        ax.yaxis.set_major_formatter(ticks_y)
-    plt.plot(off_set_x,off_set_y, marker='.', color="white", label="Origin")
-    plt.plot(x_points, y_points)
-    plt.xlabel("X Coordinate (meters)")
-    plt.ylabel('Y Coordinate (meters')
-    plt.show()
-
-if __name__ == "__main__":
-    log = logging.Logger(__name__)
-    logger = UserLogger(log, "Drone1")
-    planner = AStar([50.0, 30.0], [100.0, 100.0])
-    planner.log = logger
-    occ_map = None
-    # img = plt.imread("maps/occupancy_map.png")
-    # plt.imshow(img)
-    # plt.show()
-    with open("maps/occupancy_map.pickle", "rb") as file:
-        occ_map = pickle.load(file)
-    # occ_map = occ_map.transpose()
-    # occ_map = np.flip(occ_map)
-    scale = 2.2
-    print(occ_map.shape)
-    traj = planner.run(OccupancyMap=occ_map)
-    print(traj)
-    x_points = list()
-    y_points = list()
-    for point in traj.points:
-        # x_points.append(point.X)
-        # y_points.append(point.Y)
-        x_points.append(point.X * scale + 175)
-        y_points.append(point.Y * scale + 175)
-    # plot_trajectory(x_points, y_points, 175.0, 175.0)
