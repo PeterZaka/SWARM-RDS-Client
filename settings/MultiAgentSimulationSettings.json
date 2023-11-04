@@ -1,7 +1,7 @@
 {
     "ID": 0,
     "SimulationName": "example",
-    "RunLength": 140.0,
+    "RunLength": 60.0,
     "Scenario": {
         "Name": "Navigation",
         "Options": {
@@ -11,9 +11,9 @@
             ],
             "GoalPoint": {
                 "Drone1": {
-                    "X": 30.0,
-                    "Y": 25.0,
-                    "Z": -5.0
+                    "X": 90.0,
+                    "Y": 0.0,
+                    "Z": -7.0
                 },
                 "Drone2": {
                     "X": -10.0,
@@ -24,7 +24,7 @@
         }
     },
     "Environment": {
-        "Name": "MountainVillage",
+        "Name": "Blocks",
         "StartingLevelName": "Level1",
         "StreamVideo": true
     },
@@ -55,7 +55,7 @@
                         "Height": 480,
                         "FOV_Degrees": 90.0,
                         "FramesPerSecond": 24.0,
-                        "Record": true,
+                        "Record": false,
                         "OutputType": "Video",
                         "VideoName": "Camera1_Capture"
                     }
@@ -113,8 +113,8 @@
                         "States": [],
                         "Parameters": {
                             "goal_point": [
-                                30.0,
-                                25.0
+                                90.0,
+                                0.0
                             ],
                             "map_size": [
                                 100.0,
@@ -192,7 +192,7 @@
                         "Height": 480,
                         "FOV_Degrees": 90.0,
                         "FramesPerSecond": 24.0,
-                        "Record": true,
+                        "Record": false,
                         "OutputType": "Video",
                         "VideoName": "Camera1_Capture"
                     }

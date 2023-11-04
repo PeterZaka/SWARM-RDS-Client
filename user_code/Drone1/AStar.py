@@ -15,6 +15,7 @@ import matplotlib.ticker as ticker
 import time
 import logging
 
+import heapq
 import copy
 
 from SWARMRDS.utilities.algorithm_utils import Algorithm
@@ -92,11 +93,25 @@ class AStar(Algorithm):
             # We also must make sure that we offset our goal point as well
             self.log.log_message("Requesting a Trajectory from the planner")                
 
-            trajectory = self.planning(self.position.X, self.position.Y,
-                                       self.goal_point.X, self.goal_point.Y)
-            
-            self.log.log_message("Trajectory found!")
-            self.log.log_message(trajectory.displayPretty())
+            points = self.astar(self.calc_real_to_array((self.position.X, self.position.Y)),
+                                    self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
+                                    self.obstacle_map)
+            if len(points) == 0:
+                self.executing_trajectory = True
+                return None
+
+            trajectory = self.array_to_trajectory(points)
+
+            # Print map with path
+            # grid = copy.deepcopy(self.obstacle_map)
+            # for tup in points:
+            #     grid[tup[1]][tup[0]] = 2
+            # for r in range(len(grid)):
+            #     string = ''
+            #     for c in range(len(grid[0])):
+            #         string += str(grid[r][c])
+            #     self.log.log_message(string)
+
             self.executing_trajectory = True
             return trajectory
         else:
@@ -105,124 +120,117 @@ class AStar(Algorithm):
             return None
 
     class Node:
-        def __init__(self, x, y, cost, parent_index):
-            self.x = x  # index of grid
-            self.y = y  # index of grid
-            self.cost = cost
-            self.parent_index = parent_index
 
-        def __str__(self):
-            return str(self.x) + "," + str(self.y) + "," + str(
-                self.cost) + "," + str(self.parent_index)
+        def __init__(self, pos, parent=None):
+            self.pos = tuple(pos)
+            self.parent = parent
+            self.g = 0 # cost of path from n to start
+            self.h = 0 # estimated cost of path from n to end
+            self.f = 0 # total cost = g + h
 
-    def planning(self, sx, sy, gx, gy) -> Trajectory:
+        def __eq__(self, other):
+            return self.pos[0] == other.pos[0] and self.pos[1] == other.pos[1]
+        
+        def __hash__(self):
+            return hash(self.pos)
+        
+
+    def astar(self, start, end, graph):
         """
-        A star path search
+        Returns the path traversing graph using a* search
+
+        Parameters
+        ----------
+        start : tuple or list
+            (x, y)
+        end : tuple or list
+            (x, y)
+        graph : 2d list
+            graph to traverse
+        isDiagonal : bool
+            if true, allow diagonal traversal. Else, only go straight
+        printDebug : bool
+            if true, print final path (if found) and g values
+
+        Returns
+        -------
+        list of (x, y) or False
+            path from start to end if found
+        """
+
+        open_list = []
+        closed_list = set()
+
+        start_node = self.Node(start)
+        index = 0
+        open_list.append((start_node.f, index, start_node))
+        heapq.heapify(open_list)
+
+        while len(open_list) > 0:
+            start_node = heapq.heappop(open_list)[-1]
+            closed_list.add(start_node)
+
+            for dir in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, -1), (-1, 1)]:
+                x = dir[0]
+                y = dir[1]
+
+                node = self.Node((start_node.pos[0] + x, start_node.pos[1] + y), start_node)
+                if node.pos[0] < 0:
+                    continue
+                if node.pos[0] >= len(graph[0]):
+                    continue
+                if node.pos[1] < 0:
+                    continue
+                if node.pos[1] >= len(graph):
+                    continue
+
+                if node in closed_list:
+                    continue
+
+                if graph[node.pos[1]][node.pos[0]] == 1:
+                    continue
+
+                node.g = start_node.g + math.sqrt(math.pow(start_node.pos[0] - node.pos[0], 2) + math.pow(start_node.pos[1] - node.pos[1], 2))
+                node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
+                node.f = node.g + node.h
+
+                dup = any(node == n[-1] and n[-1].g <= node.g for n in open_list)
+                if dup:
+                    continue
+
+                if node.pos[0] == end[0] and node.pos[1] == end[1]:
+                    path = []
+                    while node is not None:
+                        path.append(node.pos)
+                        node = node.parent
+
+                    path = path[::-1]
+                    return path
+
+                index += 1
+                heapq.heappush(open_list, (node.f, index, node))
+
+        return []
+    
+    
+    def array_to_trajectory(self, points) -> Trajectory:
+        """
+        Convert list of points [grid] to a trajectory
         input:
-            s_x: start x position [m]
-            s_y: start y position [m]
-            gx: goal x position [m]
-            gy: goal y position [m]
+            List of points: [(x, y), ...] [grid]
         output:
             trajectory
         """
-
-        start_x, start_y = self.calc_real_to_array((sx, sy))
-        start_node = self.Node(start_x, start_y, 0.0, -1)
-
-        goal_x, goal_y = self.calc_real_to_array((gx, gy))
-        goal_node = self.Node(goal_x, goal_y, 0.0, -1)
-
-        open_set, closed_set = dict(), dict()
-        self.log.log_message("Grid index is {}".format(self.calc_grid_index(start_node)))
-        open_set[self.calc_grid_index(start_node)] = start_node
-        iteration = 0
-        while True:
-            iteration += 1
-            if len(open_set) == 0:
-                print("Open set is empty..")
-                break
-            # print(f"Iteration {iteration}")
-            c_id = min(
-                open_set,
-                key=lambda o: open_set[o].cost + self.calc_heuristic(goal_node,
-                                                                     open_set[
-                                                                         o]))
-            current = open_set[c_id]
-
-            if current.x == goal_node.x and current.y == goal_node.y:
-                self.log.log_message("Found goal!")
-                goal_node.parent_index = current.parent_index
-                goal_node.cost = current.cost
-                break
-
-            # Remove the item from the open set
-            del open_set[c_id]
-
-            # Add it to the closed set
-            closed_set[c_id] = current
-
-            # expand_grid search grid based on motion model
-            for i, _ in enumerate(self.motion):
-                node = self.Node(current.x + self.motion[i][0],
-                                 current.y + self.motion[i][1],
-                                 current.cost + self.motion[i][2], c_id)
-                n_id = self.calc_grid_index(node)
-                # If the node is not safe, do nothing
-                if not self.verify_node(node):
-                    continue
-
-                if n_id in closed_set:
-                    continue
-
-                if n_id not in open_set:
-                    open_set[n_id] = node  # discovered a new node
-                else:
-                    if open_set[n_id].cost > node.cost:
-                        # This path is the best until now. record it
-                        open_set[n_id] = node
-
-        trajectory = self.calc_final_path(goal_node, closed_set)
-
-        return trajectory
-
-    def calc_final_path(self, goal_node, closed_set):
-        # generate final course
         trajectory = Trajectory()
         position = PosVec3()
-        position.X, position.Y = self.calc_array_to_real((goal_node.x, goal_node.y))
-        position.Z = self.flight_altitude
-        
-        command = MovementCommand(position=position, speed=self.agent_speed)
-        trajectory.points.append(command)
-        parent_index = goal_node.parent_index
-        
 
-        PATH = []
-
-        while parent_index != -1:
+        for point in points:
             position = PosVec3()
-            n = closed_set[parent_index]
-            PATH.append([n.y, n.x])
 
-            position.X, position.Y = self.calc_array_to_real((n.x, n.y))
+            position.X, position.Y = self.calc_array_to_real((point[0], point[1]))
             position.Z = self.flight_altitude
             command = MovementCommand(position=position, speed=self.agent_speed)
             trajectory.points.append(command)
-            parent_index = n.parent_index
-
-        # DEBUGGING
-        grid = copy.deepcopy(self.obstacle_map)
-        for tup in PATH:
-            grid[tup[0]][tup[1]] = 2
-        for r in range(len(grid)):
-            string = ''
-            for c in range(len(grid[0])):
-                string += str(grid[r][c])
-            self.log.log_message(string)
-
-        # We go from goal to start, so reverse this so we fly start to goal
-        trajectory.points.reverse()
 
         # calculate the headings for each point
         for i, point in enumerate(trajectory.points):
@@ -234,12 +242,6 @@ class AStar(Algorithm):
             trajectory.points[i].heading = heading
 
         return trajectory
-
-    @staticmethod
-    def calc_heuristic(n1, n2):
-        w = 1.0  # weight of heuristic
-        d = w * math.hypot(n1.x - n2.x, n1.y - n2.y)
-        return d
 
     def calc_array_to_real(self, position: tuple):
         """
@@ -262,27 +264,6 @@ class AStar(Algorithm):
         """
         return (int(self.map_size[0] + position[0] / self.resolution),
                 int(self.map_size[1] + position[1] / self.resolution))
-
-    def calc_grid_index(self, node: Node):
-        return node.y * self.map_size[1] * 2 + node.x
-
-    def verify_node(self, node: Node):
-        if node.x < 0:
-            return False
-        elif node.x >= len(self.obstacle_map[0]):
-            return False
-        elif node.y < 0:
-            return False
-        elif node.y >= len(self.obstacle_map):
-            return False
-
-        # collision check
-        # Numpy is row major so first index is the Y axis and we still need
-        # to be sure to offset the points when we check the map
-        if self.obstacle_map[node.y][node.x]:
-            return False
-
-        return True
 
     @staticmethod
     def get_motion_model():
