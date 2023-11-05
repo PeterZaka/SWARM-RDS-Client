@@ -31,10 +31,10 @@ class AStar(Algorithm):
     Modified from: https://github.com/AtsushiSakai/PythonRobotics/blob/master/PathPlanning/AStar/a_star.py
 
     ## Inputs:
+    - resolution [float] The resolution of the occupancy map
     - goal_point [list] Where the agent should head [x,y]
     - map_size [list] The size of the map from the start point to one
                       edge. This value is the offset for the map
-    - resolution [float] The resolution of the occupancy map
     - agent_radisu [float] How wide the agent is
     - flight_altitude [float] What altitude the agent should fly at
     """
@@ -91,26 +91,38 @@ class AStar(Algorithm):
             # Plan for the trajectory
             # We start at X=0 and Y=0 in NED coordiantes, but that is map_size[0], map_size[1] in the map
             # We also must make sure that we offset our goal point as well
+
             self.log.log_message("Requesting a Trajectory from the planner")                
 
+            # Have to change map_size here for some reason
+            self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
             points = self.astar(self.calc_real_to_array((self.position.X, self.position.Y)),
                                     self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
                                     self.obstacle_map)
             if len(points) == 0:
+
+                # Print map
+                grid = copy.deepcopy(self.obstacle_map)
+                for r in range(len(grid)):
+                    string = ''
+                    for c in range(len(grid[0])):
+                        string += str(grid[r][c])
+                    self.log.log_message(string)
+
                 self.executing_trajectory = True
-                return None
+                return Trajectory()
 
             trajectory = self.array_to_trajectory(points)
 
             # Print map with path
-            # grid = copy.deepcopy(self.obstacle_map)
-            # for tup in points:
-            #     grid[tup[1]][tup[0]] = 2
-            # for r in range(len(grid)):
-            #     string = ''
-            #     for c in range(len(grid[0])):
-            #         string += str(grid[r][c])
-            #     self.log.log_message(string)
+            grid = copy.deepcopy(self.obstacle_map)
+            for tup in points:
+                grid[tup[1]][tup[0]] = 2
+            for r in range(len(grid)):
+                string = ''
+                for c in range(len(grid[0])):
+                    string += str(grid[r][c])
+                self.log.log_message(string)
 
             self.executing_trajectory = True
             return trajectory
@@ -251,8 +263,8 @@ class AStar(Algorithm):
         output:
             real_position: (x, y) [m]
         """
-        return (int((position[0] - self.map_size[0]) * self.resolution),
-                int((position[1] - self.map_size[1]) * self.resolution))
+        return (int((position[0] - self.map_size[0] / 2) * self.resolution),
+                int((position[1] - self.map_size[1] / 2) * self.resolution))
 
     def calc_real_to_array(self, position: tuple):
         """""
@@ -262,8 +274,8 @@ class AStar(Algorithm):
         output:
             array_position: (x, y) [grid]
         """
-        return (int(self.map_size[0] + position[0] / self.resolution),
-                int(self.map_size[1] + position[1] / self.resolution))
+        return (int(self.map_size[0] / 2 + position[0] / self.resolution),
+                int(self.map_size[1] / 2 + position[1] / self.resolution))
 
     @staticmethod
     def get_motion_model():
