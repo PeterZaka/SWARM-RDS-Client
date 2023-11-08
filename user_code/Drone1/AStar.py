@@ -96,9 +96,11 @@ class AStar(Algorithm):
 
             # Have to change map_size here for some reason
             self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
+
             points = self.astar(self.calc_real_to_array((self.position.X, self.position.Y)),
                                     self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
                                     self.obstacle_map)
+            
             if len(points) == 0:
 
                 # Print map
@@ -145,9 +147,9 @@ class AStar(Algorithm):
         
         def __hash__(self):
             return hash(self.pos)
-        
 
-    def astar(self, start, end, graph):
+
+    def astar(self, start, end, graph, avoidWalls=True):
         """
         Returns the path traversing graph using a* search
 
@@ -159,10 +161,8 @@ class AStar(Algorithm):
             (x, y)
         graph : 2d list
             graph to traverse
-        isDiagonal : bool
-            if true, allow diagonal traversal. Else, only go straight
-        printDebug : bool
-            if true, print final path (if found) and g values
+        avoidWalls : bool
+            add penatly for going near walls
 
         Returns
         -------
@@ -205,6 +205,17 @@ class AStar(Algorithm):
                 node.g = start_node.g + math.sqrt(math.pow(start_node.pos[0] - node.pos[0], 2) + math.pow(start_node.pos[1] - node.pos[1], 2))
                 node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
                 node.f = node.g + node.h
+
+                if avoidWalls:
+                    penalty = 0
+                    check_range = 4
+                    costs = [-1, 10, 5, 2.5, 1]
+                    for dx in range(-check_range, check_range + 1):
+                        for dy in range(-check_range, check_range + 1):
+                            x, y = node.pos[0] + dx, node.pos[1] + dy
+                            if 0 <= x < len(graph[0]) and 0 <= y < len(graph) and graph[y][x] == 1:
+                                penalty = max(penalty, costs[max(abs(dx), abs(dy))])
+                    node.f += penalty
 
                 dup = any(node == n[-1] and n[-1].g <= node.g for n in open_list)
                 if dup:
