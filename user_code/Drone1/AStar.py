@@ -97,9 +97,11 @@ class AStar(Algorithm):
             # Have to change map_size here for some reason
             self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
 
+            cost_grid = self.create_cost_grid(self.obstacle_map, [10, 5, 2.5, 1])
             points = self.astar(self.calc_real_to_array((self.position.X, self.position.Y)),
                                     self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                    self.obstacle_map)
+                                    self.obstacle_map,
+                                    cost_grid)
             
             if len(points) == 0:
 
@@ -149,7 +151,24 @@ class AStar(Algorithm):
             return hash(self.pos)
 
 
-    def astar(self, start, end, graph, avoidWalls=True):
+    def create_cost_grid(self, grid, costs):
+        new_grid = copy.deepcopy(grid)
+
+        check_range = len(costs)
+        costs.insert(0, -1)
+        for r in range(len(grid)):
+            for c in range(len(grid[0])):
+                if grid[r][c] == 1:
+                    for dx in range(-check_range, check_range + 1):
+                        for dy in range(-check_range, check_range + 1):
+                            x, y = c + dx, r + dy
+                            if 0 <= x < len(grid[0]) and 0 <= y < len(grid) and grid[y][x] != 1:
+                                new_grid[y][x] = max(new_grid[y][x], costs[max(abs(dx), abs(dy))])
+
+        return new_grid
+
+
+    def astar(self, start, end, graph, cost_grid=[]):
         """
         Returns the path traversing graph using a* search
 
@@ -161,8 +180,8 @@ class AStar(Algorithm):
             (x, y)
         graph : 2d list
             graph to traverse
-        avoidWalls : bool
-            add penatly for going near walls
+        cost_grid: 2d list
+            adds a penalty
 
         Returns
         -------
@@ -206,16 +225,8 @@ class AStar(Algorithm):
                 node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
                 node.f = node.g + node.h
 
-                if avoidWalls:
-                    penalty = 0
-                    check_range = 4
-                    costs = [-1, 10, 5, 2.5, 1]
-                    for dx in range(-check_range, check_range + 1):
-                        for dy in range(-check_range, check_range + 1):
-                            x, y = node.pos[0] + dx, node.pos[1] + dy
-                            if 0 <= x < len(graph[0]) and 0 <= y < len(graph) and graph[y][x] == 1:
-                                penalty = max(penalty, costs[max(abs(dx), abs(dy))])
-                    node.f += penalty
+                if len(cost_grid) != 0:
+                    node.f += cost_grid[node.pos[1]][node.pos[0]]
 
                 dup = any(node == n[-1] and n[-1].g <= node.g for n in open_list)
                 if dup:
