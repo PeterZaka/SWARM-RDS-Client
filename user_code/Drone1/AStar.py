@@ -222,15 +222,15 @@ class AStar(Algorithm):
                     continue
 
                 node.g = start_node.g + math.sqrt(math.pow(start_node.pos[0] - node.pos[0], 2) + math.pow(start_node.pos[1] - node.pos[1], 2))
-                node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
-                node.f = node.g + node.h
-
-                if len(cost_grid) != 0:
-                    node.f += cost_grid[node.pos[1]][node.pos[0]]
-
                 dup = any(node == n[-1] and n[-1].g <= node.g for n in open_list)
                 if dup:
                     continue
+
+                node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
+                node.f = node.g + node.h
+                if len(cost_grid) != 0:
+                    node.f += cost_grid[node.pos[1]][node.pos[0]]
+
 
                 if node.pos[0] == end[0] and node.pos[1] == end[1]:
                     path = []
