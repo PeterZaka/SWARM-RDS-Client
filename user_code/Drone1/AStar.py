@@ -150,7 +150,7 @@ class AStar(Algorithm):
         def __hash__(self):
             return hash(self.pos)
 
-
+    
     def create_cost_grid(self, grid, costs):
         new_grid = copy.deepcopy(grid)
 
@@ -159,8 +159,28 @@ class AStar(Algorithm):
         for r in range(len(grid)):
             for c in range(len(grid[0])):
                 if grid[r][c] == 1:
-                    for dx in range(-check_range, check_range + 1):
-                        for dy in range(-check_range, check_range + 1):
+                    if c == 0 or grid[r][c - 1] == 1:
+                        left_check = 0
+                    else:
+                        left_check = -check_range
+
+                    if c == len(grid[0]) - 1 or grid[r][c + 1] == 1:
+                        right_check = 0
+                    else:
+                        right_check = check_range
+
+                    if r == len(grid) - 1 or grid[r + 1][c] == 1:
+                        up_check = 0
+                    else:
+                        up_check = check_range
+
+                    if r == 0 or grid[r - 1][c] == 1:
+                        down_check = 0
+                    else:
+                        down_check = -check_range
+
+                    for dx in range(left_check, right_check + 1):
+                        for dy in range(down_check, up_check + 1):
                             x, y = c + dx, r + dy
                             if 0 <= x < len(grid[0]) and 0 <= y < len(grid) and grid[y][x] != 1:
                                 new_grid[y][x] = max(new_grid[y][x], costs[max(abs(dx), abs(dy))])
