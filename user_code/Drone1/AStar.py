@@ -258,6 +258,21 @@ class AStar(Algorithm):
                         path.append(node.pos)
                         node = node.parent
 
+                    # prune path
+                    actual_path = [path[0]]
+                    for i in range(1, len(path) - 1):
+                        dx = path[i][0] - path[i+1][0]
+                        dx2 = path[i-1][0] - path[i][0]
+
+                        dy = path[i][1] - path[i+1][1]
+                        dy2 = path[i-1][1] - path[i][1]
+
+                        if dx == dx2 and dy == dy2:
+                            continue
+                        actual_path.append(path[i])
+                    actual_path.append(path[-1])
+                    path = actual_path
+
                     path = path[::-1]
                     return path
 
@@ -292,7 +307,7 @@ class AStar(Algorithm):
                 heading = np.degrees(np.arctan2(point.position.Y - self.position.Y, point.position.X - self.position.X))
             else:
                 heading = np.degrees(np.arctan2(point.position.Y - trajectory.points[i - 1].position.Y, point.position.X -  trajectory.points[i - 1].position.X))
-            
+
             trajectory.points[i].heading = heading
 
         return trajectory

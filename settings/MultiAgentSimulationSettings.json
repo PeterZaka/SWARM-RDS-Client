@@ -93,7 +93,7 @@
                                 "Z": 20
                             },
                             "UpdateRate": 0.0,
-                            "ResolutionInMeters": 2.0
+                            "ResolutionInMeters": 1.0
                         },
                         "ClassName": "SWARMOccupancyMap",
                         "Level": 1,
@@ -124,7 +124,7 @@
                                 0.0,
                                 0.0
                             ],
-                            "resolution": 2.0,
+                            "resolution": 1.0,
                             "agent_radius": 1.5,
                             "flight_altitude": -3.0
                         },
@@ -148,14 +148,11 @@
                     "Algorithm": {
                         "Level": 1,
                         "States": [],
-                        "Parameters": {
-                            "default_speed": 1.0,
-                            "setpoint_type": "position"
-                        },
+                        "Parameters": {},
                         "InputArgs": [
                             "Trajectory"
                         ],
-                        "ClassName": "MinSnapTrajectoryPlanner",
+                        "ClassName": "PassThroughTrajectoryPlanner",
                         "ReturnValues": [
                             "Trajectory"
                         ]
@@ -230,7 +227,7 @@
                                 "Z": 20
                             },
                             "UpdateRate": 0.0,
-                            "ResolutionInMeters": 2.0
+                            "ResolutionInMeters": 1.0
                         },
                         "ClassName": "SWARMOccupancyMap",
                         "Level": 1,
@@ -254,14 +251,14 @@
                                 30.0
                             ],
                             "map_size": [
-                                50.0,
-                                50.0
+                                100.0,
+                                100.0
                             ],
                             "starting_point": [
                                 0.0,
                                 0.0
                             ],
-                            "resolution": 2.0,
+                            "resolution": 1.0,
                             "agent_radius": 1.5,
                             "flight_altitude": -4.0
                         },
