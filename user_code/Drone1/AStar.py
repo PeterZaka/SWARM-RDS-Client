@@ -115,6 +115,9 @@ class AStar(Algorithm):
 
                 self.executing_trajectory = True
                 return Trajectory()
+            
+            points = self.prune_path(points)
+            points = self.line_of_sight_path(points, cost_grid, 5)
 
             trajectory = self.array_to_trajectory(points)
 
@@ -258,21 +261,6 @@ class AStar(Algorithm):
                         path.append(node.pos)
                         node = node.parent
 
-                    # prune path
-                    actual_path = [path[0]]
-                    for i in range(1, len(path) - 1):
-                        dx = path[i][0] - path[i+1][0]
-                        dx2 = path[i-1][0] - path[i][0]
-
-                        dy = path[i][1] - path[i+1][1]
-                        dy2 = path[i-1][1] - path[i][1]
-
-                        if dx == dx2 and dy == dy2:
-                            continue
-                        actual_path.append(path[i])
-                    actual_path.append(path[-1])
-                    path = actual_path
-
                     path = path[::-1]
                     return path
 
@@ -281,7 +269,60 @@ class AStar(Algorithm):
 
         return []
     
+    def prune_path(self, path):
+        new_path = [path[0]]
+        for i in range(1, len(path) - 1):
+            dx = path[i][0] - path[i+1][0]
+            dx2 = path[i-1][0] - path[i][0]
+
+            dy = path[i][1] - path[i+1][1]
+            dy2 = path[i-1][1] - path[i][1]
+
+            if dx == dx2 and dy == dy2:
+                continue
+            new_path.append(path[i])
+        new_path.append(path[-1])
+        return new_path
     
+    def is_line_of_sight_blocked(self, start, end, grid, threshold):
+        x1, y1 = start
+        x2, y2 = end
+
+        dy = y2 - y1
+        dx = x2 - x1
+
+        length = math.sqrt(dy**2 + dx**2)
+        vx = dx / length
+        vy = dy / length
+
+        for t in range(1, math.floor(length)):
+            x = round(x1 + t * vx)
+            y = round(y1 + t * vy)
+
+            if grid[y, x] >= threshold:
+                return True
+        
+        return False
+    
+    def line_of_sight_path(self, path, grid, threshold):
+        new_path = []
+
+        i = 0
+        while i < len(path):
+            start = path[i]
+            new_path.append(start)
+            for j in range(len(path) - 1, i, -1):
+                end = path[j]
+                if not self.is_line_of_sight_blocked(start, end, grid, threshold):
+                    new_path.append(end)
+                    i = j
+                    break
+
+            i += 1
+
+        return new_path
+
+
     def array_to_trajectory(self, points) -> Trajectory:
         """
         Convert list of points [grid] to a trajectory
