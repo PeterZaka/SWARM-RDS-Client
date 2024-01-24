@@ -97,11 +97,9 @@ class AStar(Algorithm):
             # Have to change map_size here for some reason
             self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
 
-            cost_grid = self.create_cost_grid(self.obstacle_map, [10, 5, 2.5, 1])
-            points = self.astar(self.calc_real_to_array((self.position.X, self.position.Y)),
-                                    self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                    self.obstacle_map,
-                                    cost_grid)
+            points = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
+                                self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
+                                self.obstacle_map)
             
             if len(points) == 0:
 
@@ -115,9 +113,6 @@ class AStar(Algorithm):
 
                 self.executing_trajectory = True
                 return Trajectory()
-            
-            points = self.prune_path(points)
-            points = self.line_of_sight_path(points, cost_grid, 5)
 
             trajectory = self.array_to_trajectory(points)
 
@@ -137,6 +132,38 @@ class AStar(Algorithm):
             time.sleep(0.1)
             # SWARM will ignore these values
             return None
+
+
+
+    def myalgo(self, start, end, graph):
+        """
+        Returns the path traversing graph using a* search
+
+        Parameters
+        ----------
+        start : tuple or list
+            (x, y)
+        end : tuple or list
+            (x, y)
+        graph : 2d list
+            graph to traverse
+
+        Returns
+        -------
+        list of (x, y)
+            path from start to end if found
+        """
+
+        cost_grid = self.create_cost_grid(graph, [10, 5, 2.5, 1])
+        points = self.calculate_path(start, end, graph, cost_grid)
+
+        if len(points) == 0:
+            return []
+
+        points = self.prune_path(points)
+        points = self.line_of_sight_path(points, cost_grid, 5)
+
+        return points
 
     class Node:
 
@@ -191,7 +218,7 @@ class AStar(Algorithm):
         return new_grid
 
 
-    def astar(self, start, end, graph, cost_grid=[]):
+    def calculate_path(self, start, end, graph, cost_grid=[]):
         """
         Returns the path traversing graph using a* search
 
@@ -208,7 +235,7 @@ class AStar(Algorithm):
 
         Returns
         -------
-        list of (x, y) or False
+        list of (x, y)
             path from start to end if found
         """
 
@@ -322,6 +349,9 @@ class AStar(Algorithm):
 
         return new_path
 
+
+
+    # Simulation helper functions
 
     def array_to_trajectory(self, points) -> Trajectory:
         """
