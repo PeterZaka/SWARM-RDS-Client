@@ -80,9 +80,10 @@ class AStar(Algorithm):
         # that one of the inputs be the next goal point that is 
         # determined by another algorithm.
         for key, item in kwargs.items():
+            self.log.log_message(key)                
+            self.log.log_message(item)                
             if key == "OccupancyMap":
                 self.obstacle_map = item
-                break
 
         if type(self.obstacle_map).__name__ == "NoneType":
             return None

@@ -1,7 +1,7 @@
 {
     "ID": 0,
     "SimulationName": "example",
-    "RunLength": 60.0,
+    "RunLength": 10.0,
     "Scenario": {
         "Name": "Navigation",
         "Options": {
@@ -53,6 +53,21 @@
                         "Record": false,
                         "OutputType": "Video",
                         "VideoName": "Camera1_Capture"
+                    }
+                },
+                "LiDAR": {
+                    "LiDAR1": {
+                        "Hardware": "Velodyne Puck",
+                        "Enabled": true,
+                        "PublishingRate": 5.0,
+                        "X": 0.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "Roll": 0.0,
+                        "Pitch": 0.0,
+                        "Yaw": 0.0,
+                        "Record": false,
+                        "Method": "Colosseum"
                     }
                 }
             },
@@ -124,9 +139,10 @@
                             "flight_altitude": -3.0
                         },
                         "InputArgs": [
-                            "OccupancyMap"
+                            "OccupancyMap",
+                            "SWARMPointCloud"
                         ],
-                        "ClassName": "MyAlgorithm",
+                        "ClassName": "AStar",
                         "ReturnValues": [
                             "Trajectory"
                         ]
@@ -136,7 +152,10 @@
                     ],
                     "Subscribes": [
                         "OccupancyMap",
-                        "AgentState"
+                        "AgentState",
+                        {
+                            "SWARMPointCloud": "LiDAR1"
+                        }
                     ]
                 },
                 "LowLevelPathPlanning": {
