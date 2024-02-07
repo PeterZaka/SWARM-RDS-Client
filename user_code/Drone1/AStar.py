@@ -80,13 +80,43 @@ class AStar(Algorithm):
         # that one of the inputs be the next goal point that is 
         # determined by another algorithm.
         for key, item in kwargs.items():
-            self.log.log_message(key)                
-            self.log.log_message(item)                
+            if key == "SWARMPointCloud":
+                self.swarm_point_cloud = item
+                if type(self.swarm_point_cloud.metadata.position).__name__ != "Vector3r":
+                    self.log.log_message(f"Position type: {type(self.swarm_point_cloud.metadata.position)}")
+                    self.swarm_point_cloud = None
+                    continue
+                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternionr":
+                    self.log.log_message(f"Orientation type: {type(self.swarm_point_cloud.metadata.orientation)}")
+                    self.swarm_point_cloud = None
+                    continue
+
             if key == "OccupancyMap":
                 self.obstacle_map = item
 
         if type(self.obstacle_map).__name__ == "NoneType":
             return None
+
+        if self.swarm_point_cloud == None:
+            return None
+        else:
+            self.point_cloud = {
+                "point_cloud" : np.reshape(self.swarm_point_cloud.points, (-1, 3)),
+                "pose" : {
+                    "orientation" : {
+                        "w_val" : self.swarm_point_cloud.metadata.orientation.w_val,
+                        "x_val" : self.swarm_point_cloud.metadata.orientation.x_val,
+                        "y_val" : self.swarm_point_cloud.metadata.orientation.y_val,
+                        "z_val" : self.swarm_point_cloud.metadata.orientation.y_val
+                    },
+                    "position" : {
+                        "x_val" : self.swarm_point_cloud.metadata.position.x_val,
+                        "y_val" : self.swarm_point_cloud.metadata.position.y_val,
+                        "z_val" : self.swarm_point_cloud.metadata.position.y_val
+                    }
+                }
+            }
+            self.log.log_message(f"{self.point_cloud}")
 
         if not self.executing_trajectory:
             # Plan for the trajectory
