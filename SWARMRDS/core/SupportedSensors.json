@@ -471,6 +471,12 @@
                 ],
                 "Default": 0.0,
                 "Required": true
+            },
+            "Record": {
+                "Description": "Enable or disable recording of the LiDAR sensor",
+                "Type": "bool",
+                "Default": false,
+                "Required": true
             }
         }
     },
@@ -560,6 +566,12 @@
                     100
                 ],
                 "Default": 36
+            },
+            "Record": {
+                "Description": "Enable or disable recording of the IMU sensor",
+                "Type": "bool",
+                "Default": false,
+                "Required": true
             }
         }
     },
@@ -691,6 +703,12 @@
                     5
                 ],
                 "Default": 1.0
+            },
+            "Record": {
+                "Description": "Enable or disable recording of the LiDAR sensor",
+                "Type": "bool",
+                "Default": false,
+                "Required": true
             }
         }
     }

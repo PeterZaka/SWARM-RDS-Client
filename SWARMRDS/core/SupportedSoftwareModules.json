@@ -41,7 +41,9 @@
             "Heading",
             "Speed",
             "Image",
-            "Detection"
+            "Detection",
+            "Message",
+            "SWARMPointCloud"
         ],
         "ValidCustomModelModules": [
             "TorchPerception"
@@ -134,7 +136,8 @@
         "HighLevelBehavior": {
             "ValidModuleParameters": {},
             "ValidClassNames": [
-                "PathFollowing"
+                "PathFollowing",
+                "CommsTester"
             ],
             "ValidParameters": {
                 "PathFollowing": {
@@ -148,33 +151,51 @@
                             3.0
                         ]
                     }
+                },
+                "CommsTester": {
+                    "recipient": {
+                        "type": "str",
+                        "description": "The agent to send the message to",
+                        "valid_entries": [
+                            "*"
+                        ]
+                    }
                 }
             },
             "ValidInputArgs": {
                 "PathFollowing": [
                     "Trajectory"
-                ]
+                ],
+                "CommsTester": []
             },
             "ValidReturnValues": {
                 "PathFollowing": [
                     "Position",
                     "Heading",
                     "Speed"
+                ],
+                "CommsTester": [
+                    "Message"
                 ]
             },
             "RequiredSensors": {
-                "PathFollowing": []
+                "PathFollowing": [],
+                "CommsTester": []
             },
             "DefaultIO": {
                 "Publishes": {
                     "PathFollowing": [
                         "MovementCommand"
+                    ],
+                    "CommsTester": [
+                        "Message"
                     ]
                 },
                 "Subscribes": {
                     "PathFollowing": [
                         "AgentState"
-                    ]
+                    ],
+                    "CommsTester": []
                 }
             }
         },
@@ -402,10 +423,7 @@
                 "SensorDataCollector": []
             },
             "RequiredSensors": {
-                "SensorDataCollector": [
-                    "GPS",
-                    "IMU"
-                ]
+                "SensorDataCollector": []
             },
             "ValidModuleParameters": {
                 "OutputType": {

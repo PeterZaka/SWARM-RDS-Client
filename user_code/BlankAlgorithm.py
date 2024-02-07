@@ -1,5 +1,5 @@
 
-from utils.algorithm_utils import Algorithm
+from SWARMRDS.utilities.algorithm_utils import Algorithm
 
 
 class AlgorithmName(Algorithm):
