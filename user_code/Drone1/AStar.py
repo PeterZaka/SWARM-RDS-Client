@@ -23,6 +23,57 @@ from SWARMRDS.utilities.data_classes import Trajectory, MovementCommand, PosVec3
 from SWARMRDS.utilities.log_utils import UserLogger
 
 
+def transform(data):
+    # Access the 'point_cloud' key and convert it to a numpy array
+    arr = np.array(data["point_cloud"])
+
+    # Access individual values from the 'pose' key
+    pose_data = data["pose"]
+    q0 = pose_data["orientation"]["w_val"]
+    q1 = pose_data["orientation"]["x_val"]
+    q2 = pose_data["orientation"]["y_val"]
+    q3 = pose_data["orientation"]["z_val"]
+
+    x_origin = pose_data["position"]["x_val"]
+    y_origin = pose_data["position"]["y_val"]
+    z_origin = pose_data["position"]["z_val"]
+        
+    # First row of the rotation matrix
+    r00 = 2 * (q0 * q0 + q1 * q1) - 1
+    r01 = 2 * (q1 * q2 - q0 * q3)
+    r02 = 2 * (q1 * q3 + q0 * q2)
+        
+    # Second row of the rotation matrix
+    r10 = 2 * (q1 * q2 + q0 * q3)
+    r11 = 2 * (q0 * q0 + q2 * q2) - 1
+    r12 = 2 * (q2 * q3 - q0 * q1)
+        
+    # Third row of the rotation matrix
+    r20 = 2 * (q1 * q3 - q0 * q2)
+    r21 = 2 * (q2 * q3 + q0 * q1)
+    r22 = 2 * (q0 * q0 + q3 * q3) - 1
+        
+    transposition = np.array([x_origin, y_origin, z_origin])
+
+        
+    rot_matrix = np.array([[r00, r01, r02],
+                        [r10, r11, r12],
+                        [r20, r21, r22]])
+        
+    rotated = np.zeros((len(arr), 3))
+
+    for i in range(len(arr)):
+    
+        point = np.matmul(rot_matrix, arr[i])
+        point += transposition
+        rotated[i] = point
+
+    rotated[:, 2] *= -1
+
+    data['point_cloud'] = rotated
+    return data
+
+
 class AStar(Algorithm):
     """
     A planner that simply passes through the given commands to the
@@ -107,24 +158,36 @@ class AStar(Algorithm):
                         "w_val" : self.swarm_point_cloud.metadata.orientation.w_val,
                         "x_val" : self.swarm_point_cloud.metadata.orientation.x_val,
                         "y_val" : self.swarm_point_cloud.metadata.orientation.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.orientation.y_val
+                        "z_val" : self.swarm_point_cloud.metadata.orientation.z_val
                     },
                     "position" : {
                         "x_val" : self.swarm_point_cloud.metadata.position.x_val,
                         "y_val" : self.swarm_point_cloud.metadata.position.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.position.y_val
+                        "z_val" : self.swarm_point_cloud.metadata.position.z_val
                     }
                 }
             }
 
-            self.log.log_message(f"START_POINT")
             points = self.point_cloud['point_cloud']
-            for r in range(len(points)):
-                string = ''
-                for c in range(len(points[0])):
-                    string += str(points[r][c]) + ","
-                self.log.log_message(string)
-            self.log.log_message(f"END_POINT")
+
+            self.log.log_message(f"START_POINT")
+#            for r in range(len(points)):
+#                string = ''
+#                for c in range(len(points[0])):
+#                    string += str(points[r][c]) + ","
+#                self.log.log_message(string)
+#            self.log.log_message(f"END_POINT")
+
+            if len(points) != 0:
+                self.point_cloud = transform(self.point_cloud)
+                points = self.point_cloud['point_cloud']
+                for r in range(len(points)):
+                    string = ''
+                    for c in range(len(points[0])):
+                        string += str(points[r][c]) + ","
+                    self.log.log_message(string)
+
+                self.log.log_message(f"FINAL_END_POINT")
 
         if not self.executing_trajectory:
             # Plan for the trajectory
