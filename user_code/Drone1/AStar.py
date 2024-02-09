@@ -116,7 +116,15 @@ class AStar(Algorithm):
                     }
                 }
             }
-            self.log.log_message(f"{self.point_cloud}")
+
+            self.log.log_message(f"START_POINT")
+            points = self.point_cloud['point_cloud']
+            for r in range(len(points)):
+                string = ''
+                for c in range(len(points[0])):
+                    string += str(points[r][c]) + ","
+                self.log.log_message(string)
+            self.log.log_message(f"END_POINT")
 
         if not self.executing_trajectory:
             # Plan for the trajectory
