@@ -54,6 +54,21 @@
                         "OutputType": "Video",
                         "VideoName": "Camera1_Capture"
                     }
+                },
+                "LiDAR": {
+                    "LiDAR1": {
+                        "Hardware": "Velodyne Puck",
+                        "Enabled": true,
+                        "PublishingRate": 5.0,
+                        "X": 0.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "Roll": 0.0,
+                        "Pitch": 0.0,
+                        "Yaw": 0.0,
+                        "Record": false,
+                        "Method": "Colosseum"
+                    }
                 }
             },
             "Controller": {
@@ -124,9 +139,11 @@
                             "flight_altitude": -3.0
                         },
                         "InputArgs": [
-                            "OccupancyMap"
+                            "OccupancyMap",
+                            "AgentState",
+                            "SWARMPointCloud"
                         ],
-                        "ClassName": "MyAlgorithm",
+                        "ClassName": "AStar",
                         "ReturnValues": [
                             "Trajectory"
                         ]
@@ -136,7 +153,10 @@
                     ],
                     "Subscribes": [
                         "OccupancyMap",
-                        "AgentState"
+                        "AgentState",
+                        {
+                            "SWARMPointCloud": "LiDAR1"
+                        }
                     ]
                 },
                 "LowLevelPathPlanning": {
