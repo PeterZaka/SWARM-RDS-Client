@@ -7,13 +7,16 @@
 #
 # Description: AirSim interface file for the SWARM platform
 # =============================================================================
+import copy
+import json
 import math
 import numpy as np
-import copy
 
 from dataclasses import dataclass, field
 from enum import Enum, unique
 from math import sqrt
+
+MAX_MESSAGE_SIZE = 220  # Bytes
 
 
 @dataclass
@@ -510,3 +513,128 @@ class Detection():
     label: str = ""
     timestamp: str = ""
 
+
+@dataclass
+class Message():
+    """
+    A generic Message container that enables a user to Send a specific
+    set of information to another Agent in the Simulation.
+    """
+    body: dict = field(default_factory=dict)
+    message_buffer: list = field(default_factory=list)
+    timestamp: str = ""
+    recipient: str = ""
+
+    def length(self) -> int:
+        """
+        Calculate the length of the body in JSON converted,
+        utf-8 serialized bytes.
+        """
+        return len(json.dumps(self.body).encode('utf-8'))
+
+    def multi_part(self) -> list:
+        """
+        Convert the Message into a set of messages, where each message
+        is a set of sub-bytes of the overall message.
+
+        **Note** This method is run on each message, so we know
+        """
+        if self.length() > MAX_MESSAGE_SIZE:
+             
+            numb_buffers = int(np.ceil(self.length() / MAX_MESSAGE_SIZE))
+            for i in range(numb_buffers):
+                self.message_buffer.append(Message(body=json.dumps(self.body)[i * MAX_MESSAGE_SIZE:(i + 1) * MAX_MESSAGE_SIZE],
+                                              timestamp=self.timestamp,
+                                              recipient=self.recipient))
+            return self.message_buffer
+        return None
+
+
+@dataclass
+class MetaData():
+    """
+    Image metadata that describes the location, orientation and other
+    features of the camera.
+
+    ## Members:
+    - position [PosVec3] The agent position when the image was taken
+    - orientation [Quaternion] The orientation of the camera when
+                               the iamge was taken
+    """
+    position: PosVec3 = field(default_factory=PosVec3)
+    orientation: Quaternion = field(default_factory=Quaternion)
+    timestamp: int = 0  # Seconds since the Linux epoch
+
+
+
+@dataclass
+class ImageMetadata(MetaData):
+    """
+    Image metadata that describes the location, orientation and other
+    features of the camera.
+
+    ## Members:
+    - image_height [int] The height of the image in pixels
+    - image_width [int] The width of the image in pixels
+    - image_type [int] The type of image that was taken
+    """
+    image_height: int = 480
+    image_width: int = 640
+    image_type: int = 0  # TODO: Add Image Type
+    # Need to include something like the calibration parameters and 
+    # distortion parameters
+
+
+@dataclass
+class PointCloudMetaData(MetaData):
+    """
+    Point Cloud metadata that describes the location, orientation and
+    other features of the camera.
+
+    ## Members:
+    - horizontal_fov list(float, float) The horizontal field of view of the camera
+                             in degrees
+    - vertical_fov list(float, float) The (Left and Right bounds) of the
+                     vertical field of view of the camera in degrees
+    - min_range [float] The minimum range of the sensor in meters
+    - max_range [float] The maximum range of the sensor in meters
+    """    
+    horizontal_fov: list = field(default_factory=list)
+    vertical_fov: list = field(default_factory=list)
+    min_range: float = 0.0
+    max_range: float = 0.0
+
+
+@dataclass
+class SWARMImage():
+    """
+    A generic Image container that can be transferred across the SWARM
+    ecosystem. Has a base C++ class implementation and extension
+    methods for OpenCV, Pillow and more.
+
+    ## Members:
+    - data [list] The raw bytes of information
+    - timestamp [time] The raw time since Linux Epoch in nanoseconds
+    - metadata [dict] The information contained within the image, such
+                      as position of the camera.
+    """
+    data: list = field(default_factory=list)
+    timestamp: float = 0.0
+    metadata: MetaData = field(default_factory=MetaData)
+
+
+@dataclass
+class SWARMPointCloud:
+    """
+    Wrapper class for a point cloud, which is a set of points in 3D
+    space that can be used to generate a 3D representation of the
+    environment.
+
+    ### Attributes:
+    - points [list] A list of points in 3D space. Each point is tuple of
+                    (x, y, z) coordinates (in that order)
+    - metadata [Metadata] The metdata of the Point Cloud as defined in
+                            the Metadata class
+    """
+    points: list = field(default_factory=list)
+    metadata: PointCloudMetaData = field(default_factory=PointCloudMetaData)

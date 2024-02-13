@@ -158,7 +158,7 @@ class SWARM:
 
         if not valid:
             print("Environment name is invalid!")
-            return
+            raise AssertionError("Environment name {} is invalid!".format(map_name))
 
         input_options = ["Yes", "No"]
         prompt = "Would you like to view a map of the enviroment?\n(Please input the number for you choice!)\n"
@@ -528,7 +528,7 @@ class SWARM:
 
         if not valid:
             print("Environment name is invalid!")
-            return
+            raise AssertionError("Environment name {} is invalid!".format(map_name))
 
         print("Reading map name from {}".format(settings_file_name))
         if self._file_path is not None:
@@ -717,7 +717,7 @@ class SWARM:
 
         return settings, trajectory
 
-    def update_submission_list(self, message: dict, folder: str = "settings") -> None:
+    def update_submission_list(self, message: dict, sim_name: str = None, folder: str = "settings") -> None:
         """
         Once we have received a finish message, update the submission
         list to reflect this fact.
@@ -751,11 +751,17 @@ class SWARM:
         with open(history_file_path, "r") as file:
             history = json.load(file)
 
+        if sim_name is None:
+            try:
+                sim_name = message["Sim_name"]
+            except KeyError:
+                print("Error! No simulation name was provided!")
+                return
         try:
-            submission = sub_list["Submissions"][message["Sim_name"]]
+            submission = sub_list["Submissions"][sim_name]
             if message["Status"] == "Completed":
                 submission["Completed"] = True
-                print("Simulation {} has been completed!".format(message["Sim_name"]))
+                print("Simulation {} has been completed!".format(sim_name))
                 print(
                     "Completion Time: {} Mins {} Seconds".format(
                         message["Minutes"], message["Seconds"]
@@ -817,7 +823,7 @@ class SWARM:
             with open(file_path, "r") as file:
                 envs = json.load(file)
 
-            if map_name in envs["Environments"]:
+            if map_name in envs["Environments"].keys():
                 return True
             else:
                 return False
@@ -2407,6 +2413,7 @@ class SWARM:
                         )
                     )
                 if setting_name == "Algorithm":
+                    class_name = settings["Algorithm"]["ClassName"]
                     for algo_setting_name, algo_setting in setting.items():
                         if algo_setting_name == "States":
                             pass
@@ -3036,7 +3043,7 @@ class SWARM:
                 print(rcvd_msg["Error"])
                 return False
             else:
-                self.update_submission_list(rcvd_msg, folder=folder)
+                self.update_submission_list(rcvd_msg, sim_name=sim_name, folder=folder)
                 if self._response_queue is not None:
                     if "Status" in rcvd_msg.keys():
                         self._response_queue.put({"Command": "RunSimulation", "Message": rcvd_msg["Status"]})
