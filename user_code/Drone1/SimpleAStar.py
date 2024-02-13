@@ -23,74 +23,7 @@ from SWARMRDS.utilities.data_classes import Trajectory, MovementCommand, PosVec3
 from SWARMRDS.utilities.log_utils import UserLogger
 
 
-def transform(data):
-    # Access the 'point_cloud' key and convert it to a numpy array
-    arr = np.array(data["point_cloud"])
-
-    # Access individual values from the 'pose' key
-    pose_data = data["pose"]
-    q0 = pose_data["orientation"]["w_val"]
-    q1 = pose_data["orientation"]["x_val"]
-    q2 = pose_data["orientation"]["y_val"]
-    q3 = pose_data["orientation"]["z_val"]
-
-    x_origin = pose_data["position"]["x_val"]
-    y_origin = pose_data["position"]["y_val"]
-    z_origin = pose_data["position"]["z_val"]
-        
-    # First row of the rotation matrix
-    r00 = 2 * (q0 * q0 + q1 * q1) - 1
-    r01 = 2 * (q1 * q2 - q0 * q3)
-    r02 = 2 * (q1 * q3 + q0 * q2)
-        
-    # Second row of the rotation matrix
-    r10 = 2 * (q1 * q2 + q0 * q3)
-    r11 = 2 * (q0 * q0 + q2 * q2) - 1
-    r12 = 2 * (q2 * q3 - q0 * q1)
-        
-    # Third row of the rotation matrix
-    r20 = 2 * (q1 * q3 - q0 * q2)
-    r21 = 2 * (q2 * q3 + q0 * q1)
-    r22 = 2 * (q0 * q0 + q3 * q3) - 1
-        
-    transposition = np.array([x_origin, y_origin, z_origin])
-
-        
-    rot_matrix = np.array([[r00, r01, r02],
-                        [r10, r11, r12],
-                        [r20, r21, r22]])
-        
-    rotated = np.zeros((len(arr), 3))
-
-    for i in range(len(arr)):
-    
-        point = np.matmul(rot_matrix, arr[i])
-        point += transposition
-        rotated[i] = point
-
-    rotated[:, 2] *= -1
-
-    data['point_cloud'] = rotated
-    return data
-
-
-def point_cloud_to_occupancy_map(points, grid_size, resolution):
-    # pc to bin arr
-    binary_grid = np.zeros(grid_size, dtype=float)
-    for point in points:
-      x, y = point
-      grid_x = int(grid_size[0] / 2 + x / resolution)
-      grid_y = int(grid_size[1] / 2 + y / resolution)
-      if 0 <= grid_x < grid_size[0] and 0 <= grid_y < grid_size[1]:
-        binary_grid[grid_x, grid_y] = 1
-
-    binary_grid = binary_grid.T
-
-    return binary_grid
-
-
-
-class AStar(Algorithm):
+class SimpleAStar(Algorithm):
     """
     A planner that simply passes through the given commands to the
     velocity controller.
@@ -125,9 +58,6 @@ class AStar(Algorithm):
         self.flight_altitude = flight_altitude
         self.executing_trajectory = False
 
-        self.total_points = np.empty((0, 2))
-        self.grid = np.zeros((200, 200), dtype=float)
-
     def run(self, **kwargs) -> None:
         """
         Core method that is run every timestemp. Syntax for the module
@@ -150,98 +80,17 @@ class AStar(Algorithm):
         # that one of the inputs be the next goal point that is 
         # determined by another algorithm.
         for key, item in kwargs.items():
-            if key == "SWARMPointCloud":
-                self.swarm_point_cloud = item
-                if type(self.swarm_point_cloud.metadata.position).__name__ != "Vector3r":
-                    self.log.log_message(f"Position type: {type(self.swarm_point_cloud.metadata.position)}")
-                    self.swarm_point_cloud = None
-                    continue
-                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternionr":
-                    self.log.log_message(f"Orientation type: {type(self.swarm_point_cloud.metadata.orientation)}")
-                    self.swarm_point_cloud = None
-                    continue
-
             if key == "OccupancyMap":
                 self.obstacle_map = item
-
-            if key == "AgentState":
-                self.log.log_message(item)
-                self.position = item.position
+                break
 
         if type(self.obstacle_map).__name__ == "NoneType":
             return None
-
-        if self.swarm_point_cloud == None:
-            return None
-        else:
-            self.point_cloud = {
-                "point_cloud" : np.reshape(self.swarm_point_cloud.points, (-1, 3)),
-                "pose" : {
-                    "orientation" : {
-                        "w_val" : self.swarm_point_cloud.metadata.orientation.w_val,
-                        "x_val" : self.swarm_point_cloud.metadata.orientation.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.orientation.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.orientation.z_val
-                    },
-                    "position" : {
-                        "x_val" : self.swarm_point_cloud.metadata.position.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.position.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.position.z_val
-                    }
-                }
-            }
-
-#            points = self.point_cloud['point_cloud']
-
-#            self.log.log_message(f"START_POINT")
-#            for r in range(len(points)):
-#                string = ''
-#                for c in range(len(points[0])):
-#                    string += str(points[r][c]) + ","
-#                self.log.log_message(string)
-#            self.log.log_message(f"END_POINT")
-
-#            if len(points) != 0:
-#                self.point_cloud = transform(self.point_cloud)
-#                points = self.point_cloud['point_cloud']
-#                for r in range(len(points)):
-#                    string = ''
-#                    for c in range(len(points[0])):
-#                        string += str(points[r][c]) + ","
-#                    self.log.log_message(string)
-
-#                self.log.log_message(f"FINAL_END_POINT")
-
-            points = self.point_cloud['point_cloud']
-            if len(points) != 0:
-                self.point_cloud = transform(self.point_cloud)
-                points = self.point_cloud['point_cloud']
-
-                z_range = (0, 3)
-                (z_min, z_max) = z_range
-                mask = (points[:, 2] >= z_min) & (points[:, 2] <= z_max)
-                points = points[mask, :2]
-
-                self.total_points = np.concatenate((self.total_points, points))
-
-                self.grid = point_cloud_to_occupancy_map(self.total_points, (200, 200), 1)
-
-#                self.log.log_message("START GRID")
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#                self.log.log_message("END GRID")
-
 
         if not self.executing_trajectory:
             # Plan for the trajectory
             # We start at X=0 and Y=0 in NED coordiantes, but that is map_size[0], map_size[1] in the map
             # We also must make sure that we offset our goal point as well
-
-            self.executing_trajectory = True
 
             self.log.log_message("Requesting a Trajectory from the planner")                
 
@@ -250,22 +99,25 @@ class AStar(Algorithm):
 
             points = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
                                 self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                self.grid)
-
+                                self.obstacle_map)
+            
             if len(points) == 0:
-#                # Print map
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#
-                self.executing_trajectory = False
+
+                # Print map
+                grid = copy.deepcopy(self.obstacle_map)
+                for r in range(len(grid)):
+                    string = ''
+                    for c in range(len(grid[0])):
+                        string += str(grid[r][c])
+                    self.log.log_message(string)
+
+                self.executing_trajectory = True
                 return Trajectory()
 
+            trajectory = self.array_to_trajectory(points)
+
             # Print map with path
-            grid = copy.deepcopy(self.grid)
+            grid = copy.deepcopy(self.obstacle_map)
             for tup in points:
                 grid[tup[1]][tup[0]] = 2
             for r in range(len(grid)):
@@ -274,9 +126,7 @@ class AStar(Algorithm):
                     string += str(grid[r][c])
                 self.log.log_message(string)
 
-            trajectory = self.array_to_trajectory(points)
-
-            self.executing_trajectory = False
+            self.executing_trajectory = True
             return trajectory
         else:
             time.sleep(0.1)
@@ -304,16 +154,9 @@ class AStar(Algorithm):
             path from start to end if found
         """
 
-        cost_grid = self.create_cost_grid(graph, [10, 5, 2.5, 1])
-        points = self.calculate_path(start, end, graph, cost_grid)
+        points = self.calculate_path(start, end, graph)
 
-        if len(points) == 0:
-            return []
-
-        points = self.prune_path(points)
-        points = self.line_of_sight_path(points, cost_grid, 5)
-
-        return points[1:]
+        return points
 
     class Node:
 
@@ -330,45 +173,7 @@ class AStar(Algorithm):
         def __hash__(self):
             return hash(self.pos)
 
-    
-    def create_cost_grid(self, grid, costs):
-        new_grid = copy.deepcopy(grid)
-
-        check_range = len(costs)
-        costs.insert(0, -1)
-        for r in range(len(grid)):
-            for c in range(len(grid[0])):
-                if grid[r][c] == 1:
-                    if c == 0 or grid[r][c - 1] == 1:
-                        left_check = 0
-                    else:
-                        left_check = -check_range
-
-                    if c == len(grid[0]) - 1 or grid[r][c + 1] == 1:
-                        right_check = 0
-                    else:
-                        right_check = check_range
-
-                    if r == len(grid) - 1 or grid[r + 1][c] == 1:
-                        up_check = 0
-                    else:
-                        up_check = check_range
-
-                    if r == 0 or grid[r - 1][c] == 1:
-                        down_check = 0
-                    else:
-                        down_check = -check_range
-
-                    for dx in range(left_check, right_check + 1):
-                        for dy in range(down_check, up_check + 1):
-                            x, y = c + dx, r + dy
-                            if 0 <= x < len(grid[0]) and 0 <= y < len(grid) and grid[y][x] != 1:
-                                new_grid[y][x] = max(new_grid[y][x], costs[max(abs(dx), abs(dy))])
-
-        return new_grid
-
-
-    def calculate_path(self, start, end, graph, cost_grid=[]):
+    def calculate_path(self, start, end, graph):
         """
         Returns the path traversing graph using a* search
 
@@ -380,8 +185,6 @@ class AStar(Algorithm):
             (x, y)
         graph : 2d list
             graph to traverse
-        cost_grid: 2d list
-            adds a penalty
 
         Returns
         -------
@@ -428,9 +231,6 @@ class AStar(Algorithm):
 
                 node.h = math.sqrt(math.pow(end[0] - node.pos[0], 2) + math.pow(end[1] - node.pos[1], 2))
                 node.f = node.g + node.h
-                if len(cost_grid) != 0:
-                    node.f += cost_grid[node.pos[1]][node.pos[0]]
-
 
                 if node.pos[0] == end[0] and node.pos[1] == end[1]:
                     path = []
@@ -445,59 +245,6 @@ class AStar(Algorithm):
                 heapq.heappush(open_list, (node.f, index, node))
 
         return []
-    
-    def prune_path(self, path):
-        new_path = [path[0]]
-        for i in range(1, len(path) - 1):
-            dx = path[i][0] - path[i+1][0]
-            dx2 = path[i-1][0] - path[i][0]
-
-            dy = path[i][1] - path[i+1][1]
-            dy2 = path[i-1][1] - path[i][1]
-
-            if dx == dx2 and dy == dy2:
-                continue
-            new_path.append(path[i])
-        new_path.append(path[-1])
-        return new_path
-    
-    def is_line_of_sight_blocked(self, start, end, grid, threshold):
-        x1, y1 = start
-        x2, y2 = end
-
-        dy = y2 - y1
-        dx = x2 - x1
-
-        length = math.sqrt(dy**2 + dx**2)
-        vx = dx / length
-        vy = dy / length
-
-        for t in range(1, math.floor(length)):
-            x = round(x1 + t * vx)
-            y = round(y1 + t * vy)
-
-            if grid[y, x] >= threshold:
-                return True
-        
-        return False
-    
-    def line_of_sight_path(self, path, grid, threshold):
-        new_path = []
-
-        i = 0
-        while i < len(path):
-            start = path[i]
-            new_path.append(start)
-            for j in range(len(path) - 1, i, -1):
-                end = path[j]
-                if not self.is_line_of_sight_blocked(start, end, grid, threshold):
-                    new_path.append(end)
-                    i = j
-                    break
-
-            i += 1
-
-        return new_path
 
 
 

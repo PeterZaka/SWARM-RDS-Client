@@ -1,0 +1,187 @@
+{
+    "ID": 0,
+    "SimulationName": "example",
+    "RunLength": 60.0,
+    "Scenario": {
+        "Name": "Navigation",
+        "Options": {
+            "MultiLevel": false,
+            "LevelNames": [
+                "Level1"
+            ],
+            "GoalPoint": {
+                "Drone1": {
+                    "X": 90.0,
+                    "Y": 0.0,
+                    "Z": -7.0
+                }
+            }
+        }
+    },
+    "Environment": {
+        "Name": "Blocks",
+        "StartingLevelName": "Level1",
+        "StreamVideo": true
+    },
+    "Data": {
+        "VehicleState": {
+            "Format": "SWARM"
+        }
+    },
+    "Agents": {
+        "Drone1": {
+            "Vehicle": "Multirotor",
+            "VehiclePhysicsProfile": "CodexX500",
+            "VehicleOptions": {},
+            "AutoPilot": "SWARM",
+            "Sensors": {
+                "Cameras": {
+                    "Camera1": {
+                        "Enabled": true,
+                        "PublishPose": false,
+                        "X": 0.35,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "Roll": 0.0,
+                        "Pitch": 0.0,
+                        "Yaw": 0.0,
+                        "ImageType": "Scene",
+                        "Width": 640,
+                        "Height": 480,
+                        "FOV_Degrees": 90.0,
+                        "FramesPerSecond": 24.0,
+                        "Record": false,
+                        "OutputType": "Video",
+                        "VideoName": "Camera1_Capture"
+                    }
+                },
+                "LiDAR": {
+                    "LiDAR1": {
+                        "Hardware": "Velodyne Puck",
+                        "Enabled": true,
+                        "PublishingRate": 5.0,
+                        "X": 0.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "Roll": 0.0,
+                        "Pitch": 0.0,
+                        "Yaw": 0.0,
+                        "Record": false,
+                        "Method": "Colosseum"
+                    }
+                }
+            },
+            "Controller": {
+                "Name": "PID",
+                "Gains": {
+                    "P": 0.95,
+                    "I": 0.02,
+                    "D": 0.05
+                }
+            },
+            "StartingPosition": {
+                "X": 0.0,
+                "Y": 0.0,
+                "Z": -1.0,
+                "Roll": 0.0,
+                "Pitch": 0.0,
+                "Yaw": 0.0
+            },
+            "SoftwareModules": {
+                "Mapping": {
+                    "Algorithm": {
+                        "Parameters": {
+                            "Type": "OccupancyMap",
+                            "Center": {
+                                "X": 0.0,
+                                "Y": 0.0,
+                                "Z": 0.0
+                            },
+                            "Size": {
+                                "X": 100,
+                                "Y": 100,
+                                "Z": 20
+                            },
+                            "UpdateRate": 0.0,
+                            "ResolutionInMeters": 1.0
+                        },
+                        "ClassName": "SWARMOccupancyMap",
+                        "Level": 1,
+                        "InputArgs": [],
+                        "ReturnValues": [
+                            "OccupancyMap"
+                        ]
+                    },
+                    "Publishes": [
+                        "OccupancyMap"
+                    ],
+                    "Subscribes": []
+                },
+                "HighLevelPathPlanning": {
+                    "Algorithm": {
+                        "Level": 3,
+                        "States": [],
+                        "Parameters": {
+                            "goal_point": [
+                                90.0,
+                                0.0
+                            ],
+                            "map_size": [
+                                100.0,
+                                100.0
+                            ],
+                            "starting_point": [
+                                0.0,
+                                0.0
+                            ],
+                            "resolution": 1.0,
+                            "agent_radius": 1.5,
+                            "flight_altitude": -3.0
+                        },
+                        "InputArgs": [
+                            "OccupancyMap",
+                            "AgentState",
+                            "SWARMPointCloud"
+                        ],
+                        "ClassName": "AStar",
+                        "ReturnValues": [
+                            "Trajectory"
+                        ]
+                    },
+                    "Publishes": [
+                        "Trajectory"
+                    ],
+                    "Subscribes": [
+                        "OccupancyMap",
+                        "AgentState",
+                        {
+                            "SWARMPointCloud": "LiDAR1"
+                        }
+                    ]
+                },
+                "LowLevelPathPlanning": {
+                    "Algorithm": {
+                        "Level": 1,
+                        "States": [],
+                        "Parameters": {},
+                        "InputArgs": [
+                            "Trajectory"
+                        ],
+                        "ClassName": "PassThroughTrajectoryPlanner",
+                        "ReturnValues": [
+                            "Trajectory"
+                        ]
+                    },
+                    "Parameters": {
+                        "completed_waypoint_distance": 1.0
+                    },
+                    "Publishes": [],
+                    "Subscribes": [
+                        "AgentState",
+                        "Trajectory"
+                    ]
+                }
+            }
+        }
+    }
+}
