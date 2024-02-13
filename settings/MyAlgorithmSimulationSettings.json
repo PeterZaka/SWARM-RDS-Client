@@ -140,6 +140,7 @@
                         },
                         "InputArgs": [
                             "OccupancyMap",
+                            "AgentState",
                             "SWARMPointCloud"
                         ],
                         "ClassName": "AStar",
