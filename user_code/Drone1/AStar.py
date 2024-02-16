@@ -127,6 +127,7 @@ class AStar(Algorithm):
 
         self.total_points = np.empty((0, 2))
         self.grid = np.zeros((200, 200), dtype=float)
+        self.path = []
 
     def run(self, **kwargs) -> None:
         """
@@ -152,12 +153,14 @@ class AStar(Algorithm):
         for key, item in kwargs.items():
             if key == "SWARMPointCloud":
                 self.swarm_point_cloud = item
-                if type(self.swarm_point_cloud.metadata.position).__name__ != "Vector3r":
+                if type(self.swarm_point_cloud.metadata.position).__name__ != "PosVec3":
                     self.log.log_message(f"Position type: {type(self.swarm_point_cloud.metadata.position)}")
+                    self.log.log_message(f"{self.swarm_point_cloud.metadata.position}")
                     self.swarm_point_cloud = None
                     continue
-                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternionr":
+                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternion":
                     self.log.log_message(f"Orientation type: {type(self.swarm_point_cloud.metadata.orientation)}")
+                    self.log.log_message(f"{self.swarm_point_cloud.metadata.orientation}")
                     self.swarm_point_cloud = None
                     continue
 
@@ -165,7 +168,7 @@ class AStar(Algorithm):
                 self.obstacle_map = item
 
             if key == "AgentState":
-                self.log.log_message(item)
+                self.log.log_message(f"agentstate: {item}")
                 self.position = item.position
 
         if type(self.obstacle_map).__name__ == "NoneType":
@@ -178,39 +181,21 @@ class AStar(Algorithm):
                 "point_cloud" : np.reshape(self.swarm_point_cloud.points, (-1, 3)),
                 "pose" : {
                     "orientation" : {
-                        "w_val" : self.swarm_point_cloud.metadata.orientation.w_val,
-                        "x_val" : self.swarm_point_cloud.metadata.orientation.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.orientation.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.orientation.z_val
+                        "w_val" : self.swarm_point_cloud.metadata.orientation.w,
+                        "x_val" : self.swarm_point_cloud.metadata.orientation.x,
+                        "y_val" : self.swarm_point_cloud.metadata.orientation.y,
+                        "z_val" : self.swarm_point_cloud.metadata.orientation.z
                     },
                     "position" : {
-                        "x_val" : self.swarm_point_cloud.metadata.position.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.position.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.position.z_val
+                        "x_val" : self.swarm_point_cloud.metadata.position.X,
+                        "y_val" : self.swarm_point_cloud.metadata.position.Y,
+                        "z_val" : self.swarm_point_cloud.metadata.position.Z
                     }
                 }
             }
 
-#            points = self.point_cloud['point_cloud']
-
-#            self.log.log_message(f"START_POINT")
-#            for r in range(len(points)):
-#                string = ''
-#                for c in range(len(points[0])):
-#                    string += str(points[r][c]) + ","
-#                self.log.log_message(string)
-#            self.log.log_message(f"END_POINT")
-
-#            if len(points) != 0:
-#                self.point_cloud = transform(self.point_cloud)
-#                points = self.point_cloud['point_cloud']
-#                for r in range(len(points)):
-#                    string = ''
-#                    for c in range(len(points[0])):
-#                        string += str(points[r][c]) + ","
-#                    self.log.log_message(string)
-
-#                self.log.log_message(f"FINAL_END_POINT")
+            self.position.X = self.swarm_point_cloud.metadata.position.X
+            self.position.Y = self.swarm_point_cloud.metadata.position.Y
 
             points = self.point_cloud['point_cloud']
             if len(points) != 0:
@@ -226,15 +211,6 @@ class AStar(Algorithm):
 
                 self.grid = point_cloud_to_occupancy_map(self.total_points, (200, 200), 1)
 
-#                self.log.log_message("START GRID")
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#                self.log.log_message("END GRID")
-
 
         if not self.executing_trajectory:
             # Plan for the trajectory
@@ -248,25 +224,36 @@ class AStar(Algorithm):
             # Have to change map_size here for some reason
             self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
 
-            points = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
-                                self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                self.grid)
+            if len(self.path) == 0:
+                self.path = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
+                                    self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
+                                    self.grid)
+            else:
+                self.path = self.fix_path(self.path, self.grid, [10, 5, 2.5, 1.1])
 
-            if len(points) == 0:
-#                # Print map
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#
+                self.log.log_message(f"Path: {self.path}")
+
+                blocking = self.is_path_blocked(self.path, self.grid, 1)
+                if blocking != -1:
+                    self.log.log_message(f'Was blocked')
+                    self.path = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
+                                        self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
+                                        self.grid)
+                    blocking = self.is_path_blocked(self.path, self.grid, 1)
+                    if blocking != -1:
+                        self.log.log_message(f'Extremely blocked')
+                        xsign = math.copysign(1, self.path[1][0])
+                        ysign = math.copysign(1, self.path[1][1])
+                        self.path[1] = (self.path[0][0] - xsign, self.path[0][1] - ysign)
+
+            if len(self.path) == 0:
+                self.log.log_message("No path found")
                 self.executing_trajectory = False
                 return Trajectory()
 
             # Print map with path
             grid = copy.deepcopy(self.grid)
-            for tup in points:
+            for tup in self.path:
                 grid[tup[1]][tup[0]] = 2
             for r in range(len(grid)):
                 string = ''
@@ -274,7 +261,8 @@ class AStar(Algorithm):
                     string += str(grid[r][c])
                 self.log.log_message(string)
 
-            trajectory = self.array_to_trajectory(points)
+            path = self.path[1:]
+            trajectory = self.array_to_trajectory(path)
 
             self.executing_trajectory = False
             return trajectory
@@ -313,7 +301,7 @@ class AStar(Algorithm):
         points = self.prune_path(points)
         points = self.line_of_sight_path(points, cost_grid, 5)
 
-        return points[1:]
+        return points
 
     class Node:
 
@@ -472,11 +460,14 @@ class AStar(Algorithm):
         vx = dx / length
         vy = dy / length
 
-        for t in range(1, math.floor(length)):
-            x = round(x1 + t * vx)
-            y = round(y1 + t * vy)
+        for t in range(0, math.floor(length) + 2):
+            x = x1 + t * vx
+            y = y1 + t * vy
 
-            if grid[y, x] >= threshold:
+            floor_cell = grid[math.floor(y), math.floor(x)]
+            ceil_cell = grid[math.ceil(y), math.ceil(x)]
+
+            if floor_cell >= threshold or floor_cell == 1 or ceil_cell >= threshold or ceil_cell == 1:
                 return True
         
         return False
@@ -498,6 +489,43 @@ class AStar(Algorithm):
             i += 1
 
         return new_path
+
+    def is_path_blocked(self, path, grid, threshold):
+        for i in range(len(path) - 1):
+            if self.is_line_of_sight_blocked(path[i], path[i+1], grid, threshold):
+                return i
+        return -1
+
+    def reroute_path(self, path, intersection, graph, cost_graph):
+        unblocking_path = self.calculate_path(path[intersection], path[intersection+1], graph, cost_graph)
+        unblocking_path = unblocking_path[1:-1]
+        intersection += 1
+        path = path[:intersection] + unblocking_path + path[intersection:]
+        return path
+
+    def fix_path(self, path, grid, costs):
+        # path[0] = pos
+        path[0] = self.calc_real_to_array((self.position.X, self.position.Y))
+        for j in range(len(path) - 1, 0, -1):
+            end = path[j]
+            if not self.is_line_of_sight_blocked(path[0], end, grid, 100):
+                path = path[0:1] + path[j:]
+                break
+
+        blocking = self.is_path_blocked(path, grid, 1)
+        if blocking != -1:
+            if len(path) > 2:
+                if blocking == 0:
+                    path = path[0:1] + path[2:]
+                else:
+                    path = path[:blocking] + path[(blocking + 1):]
+                    blocking -= 1
+            data_cost = self.create_cost_grid(grid, costs)
+            path = self.reroute_path(path, blocking, grid, data_cost)
+            path = self.prune_path(path)
+            path = self.line_of_sight_path(path, data_cost, 5)
+
+        return path
 
 
 
