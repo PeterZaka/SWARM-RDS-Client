@@ -128,6 +128,7 @@ class AStar(Algorithm):
         self.total_points = np.empty((0, 2))
         self.grid = np.zeros((200, 200), dtype=float)
         self.path = []
+        self.drone_path = []
 
     def run(self, **kwargs) -> None:
         """
@@ -251,9 +252,10 @@ class AStar(Algorithm):
                 self.executing_trajectory = False
                 return Trajectory()
 
-            # Print map with path
+            # Print map with drone_path
+            self.drone_path.append(self.calc_real_to_array((self.position.X, self.position.Y)))
             grid = copy.deepcopy(self.grid)
-            for tup in self.path:
+            for tup in self.drone_path:
                 grid[tup[1]][tup[0]] = 2
             for r in range(len(grid)):
                 string = ''
