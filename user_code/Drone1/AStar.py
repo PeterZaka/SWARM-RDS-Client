@@ -197,11 +197,23 @@ class AStar(Algorithm):
 
             self.position.X = self.swarm_point_cloud.metadata.position.X
             self.position.Y = self.swarm_point_cloud.metadata.position.Y
+#            self.log.log_message(f"actual pos: {self.position}")
+
 
             points = self.point_cloud['point_cloud']
+
+
             if len(points) != 0:
                 self.point_cloud = transform(self.point_cloud)
                 points = self.point_cloud['point_cloud']
+
+                self.log.log_message(f"START_POINT")
+                for r in range(len(points)):
+                    string = ''
+                    for c in range(len(points[0])):
+                        string += str(points[r][c]) + ","
+                    self.log.log_message(string)
+                self.log.log_message(f"END_POINT")
 
                 z_range = (0, 3)
                 (z_min, z_max) = z_range
@@ -230,22 +242,13 @@ class AStar(Algorithm):
                                     self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
                                     self.grid)
             else:
-                self.path = self.fix_path(self.path, self.grid, [10, 5, 2.5, 1.1])
+                self.path[0] = self.calc_real_to_array((self.position.X, self.position.Y))
+                self.log.log_message(f"path[0]: {self.path[0]}")
+                self.log.log_message(f"path[1]: {self.calc_array_to_real(self.path[1])}")
+
+                self.path = self.fix_path(self.path, self.grid, [1000, 500, 2.5, 1.1], 5)
 
                 self.log.log_message(f"Path: {self.path}")
-
-                blocking = self.is_path_blocked(self.path, self.grid, 1)
-                if blocking != -1:
-                    self.log.log_message(f'Was blocked')
-                    self.path = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
-                                        self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                        self.grid)
-                    blocking = self.is_path_blocked(self.path, self.grid, 1)
-                    if blocking != -1:
-                        self.log.log_message(f'Extremely blocked')
-                        xsign = math.copysign(1, self.path[1][0])
-                        ysign = math.copysign(1, self.path[1][1])
-                        self.path[1] = (self.path[0][0] - xsign, self.path[0][1] - ysign)
 
             if len(self.path) == 0:
                 self.log.log_message("No path found")
@@ -253,15 +256,18 @@ class AStar(Algorithm):
                 return Trajectory()
 
             # Print map with drone_path
-            self.drone_path.append(self.calc_real_to_array((self.position.X, self.position.Y)))
-            grid = copy.deepcopy(self.grid)
-            for tup in self.drone_path:
-                grid[tup[1]][tup[0]] = 2
-            for r in range(len(grid)):
-                string = ''
-                for c in range(len(grid[0])):
-                    string += str(grid[r][c])
-                self.log.log_message(string)
+#            self.drone_path.append(self.calc_real_to_array((self.position.X, self.position.Y)))
+#            grid = copy.deepcopy(self.grid)
+#            for i, tup in enumerate(self.drone_path):
+#                grid[tup[1]][tup[0]] = i
+#            
+#            self.log.log_message(f'i: {i}')
+#            self.log.log_message(len(self.drone_path))
+#            for r in range(len(grid)):
+#                string = ''
+#                for c in range(len(grid[0])):
+#                    string += str(grid[r][c] * len(self.drone_path))
+#                self.log.log_message(string)
 
             path = self.path[1:]
             trajectory = self.array_to_trajectory(path)
@@ -450,7 +456,13 @@ class AStar(Algorithm):
             new_path.append(path[i])
         new_path.append(path[-1])
         return new_path
-    
+
+    def is_blocked(self, point, grid, threshold):
+        cell = grid[point[1], point[0]]
+        if cell >= threshold or cell == 1:
+            return True
+        return False
+
     def is_line_of_sight_blocked(self, start, end, grid, threshold):
         x1, y1 = start
         x2, y2 = end
@@ -462,16 +474,16 @@ class AStar(Algorithm):
         vx = dx / length
         vy = dy / length
 
-        for t in range(0, math.floor(length) + 2):
+        for t in range(1, math.floor(length) + 1):
             x = x1 + t * vx
             y = y1 + t * vy
 
-            floor_cell = grid[math.floor(y), math.floor(x)]
-            ceil_cell = grid[math.ceil(y), math.ceil(x)]
+            floor_cell = (math.floor(x), math.floor(y))
+            ceil_cell = (math.ceil(x), math.ceil(y))
 
-            if floor_cell >= threshold or floor_cell == 1 or ceil_cell >= threshold or ceil_cell == 1:
+            if self.is_blocked(floor_cell, grid, threshold) or self.is_blocked(ceil_cell, grid, threshold):
                 return True
-        
+
         return False
     
     def line_of_sight_path(self, path, grid, threshold):
@@ -492,42 +504,95 @@ class AStar(Algorithm):
 
         return new_path
 
-    def is_path_blocked(self, path, grid, threshold):
-        for i in range(len(path) - 1):
-            if self.is_line_of_sight_blocked(path[i], path[i+1], grid, threshold):
-                return i
-        return -1
+    def get_intersection(self, start, end, grid, threshold):
+        grid = copy.deepcopy(grid)
 
-    def reroute_path(self, path, intersection, graph, cost_graph):
-        unblocking_path = self.calculate_path(path[intersection], path[intersection+1], graph, cost_graph)
-        unblocking_path = unblocking_path[1:-1]
-        intersection += 1
-        path = path[:intersection] + unblocking_path + path[intersection:]
-        return path
+        x1, y1 = start
+        x2, y2 = end
 
-    def fix_path(self, path, grid, costs):
-        # path[0] = pos
-        path[0] = self.calc_real_to_array((self.position.X, self.position.Y))
-        for j in range(len(path) - 1, 0, -1):
-            end = path[j]
-            if not self.is_line_of_sight_blocked(path[0], end, grid, 100):
-                path = path[0:1] + path[j:]
-                break
+        start_blocked = grid[y1, x1] >= threshold or grid[y1, x1] == 1
 
-        blocking = self.is_path_blocked(path, grid, 1)
-        if blocking != -1:
-            if len(path) > 2:
-                if blocking == 0:
-                    path = path[0:1] + path[2:]
-                else:
-                    path = path[:blocking] + path[(blocking + 1):]
-                    blocking -= 1
-            data_cost = self.create_cost_grid(grid, costs)
-            path = self.reroute_path(path, blocking, grid, data_cost)
-            path = self.prune_path(path)
-            path = self.line_of_sight_path(path, data_cost, 5)
+        dy = y2 - y1
+        dx = x2 - x1
 
-        return path
+        length = math.sqrt(dy**2 + dx**2)
+        vx = dx / length
+        vy = dy / length
+
+        for t in range(1, math.floor(length)):
+            x = x1 + t * vx
+            y = y1 + t * vy
+
+            floor_cell = (math.floor(x), math.floor(y))
+            ceil_cell = (math.ceil(x), math.ceil(y))
+
+            if self.is_blocked(floor_cell, grid, threshold) or self.is_blocked(ceil_cell, grid, threshold):
+                if not start_blocked:
+                    t -= 1
+
+                    x = x1 + t * vx
+                    y = y1 + t * vy
+
+                    round_cell = (round(x), round(y))
+
+                    return round_cell
+            else:
+                if start_blocked:
+                    t += 1
+
+                    x = x1 + t * vx
+                    y = y1 + t * vy
+
+                    round_cell = (round(x), round(y))
+
+                    return round_cell
+
+        return ()
+
+    def fix_path(self, path, grid, costs, threshold):
+        data_cost = self.create_cost_grid(grid, costs)
+
+        # remove duplicates
+        path = list(dict.fromkeys(path))
+
+
+        self.log.log_message(f"a")
+
+        new_points = []
+        for i in range(0, len(path) - 1):
+            new_points.append(path[i])
+            intersection = self.get_intersection(path[i], path[i+1], data_cost, threshold)
+            if len(intersection) != 0:
+                new_points.append(intersection)
+        new_points.append(path[-1])
+
+        self.log.log_message(f"b")
+
+        new_points = [point for point in new_points if not self.is_blocked(point, data_cost, threshold)]
+        new_points.insert(0, path[0])
+        new_points.append(path[-1])
+
+        # remove duplicates
+        new_points = list(dict.fromkeys(new_points))
+
+        new_path = []
+        for i in range(0, len(new_points) - 1):
+            if self.is_line_of_sight_blocked(new_points[i], new_points[i+1], data_cost, threshold):
+                path_between_points = self.calculate_path(new_points[i], new_points[i+1], grid, data_cost)
+            else:
+                path_between_points = [new_points[i], new_points[i+1]]
+
+            new_path += path_between_points[:-1]
+        new_path.append(path[-1])
+
+        self.log.log_message(f"c")
+
+        new_path = self.prune_path(new_path)
+        new_path = self.line_of_sight_path(new_path, data_cost, threshold)
+
+        self.log.log_message(f"d")
+
+        return new_path
 
 
 
