@@ -168,6 +168,7 @@ class AStar(Algorithm):
             if key == "OccupancyMap":
                 self.obstacle_map = item
 
+
             if key == "AgentState":
                 self.log.log_message(f"agentstate: {item}")
                 self.position = item.position
@@ -207,13 +208,13 @@ class AStar(Algorithm):
                 self.point_cloud = transform(self.point_cloud)
                 points = self.point_cloud['point_cloud']
 
-                self.log.log_message(f"START_POINT")
-                for r in range(len(points)):
-                    string = ''
-                    for c in range(len(points[0])):
-                        string += str(points[r][c]) + ","
-                    self.log.log_message(string)
-                self.log.log_message(f"END_POINT")
+#                self.log.log_message(f"START_POINT")
+#                for r in range(len(points)):
+#                    string = ''
+#                    for c in range(len(points[0])):
+#                        string += str(points[r][c]) + ","
+#                    self.log.log_message(string)
+#                self.log.log_message(f"END_POINT")
 
                 z_range = (0, 3)
                 (z_min, z_max) = z_range
@@ -255,19 +256,26 @@ class AStar(Algorithm):
                 self.executing_trajectory = False
                 return Trajectory()
 
+            self.log.log_message("obstacle map:")
+            grid = copy.deepcopy(self.obstacle_map)
+            for r in range(len(grid)):
+                string = ''
+                for c in range(len(grid[0])):
+                    string += str(grid[r][c])
+                self.log.log_message(string)
+
             # Print map with drone_path
 #            self.drone_path.append(self.calc_real_to_array((self.position.X, self.position.Y)))
-#            grid = copy.deepcopy(self.grid)
+            self.log.log_message("made grid")
+            grid = copy.deepcopy(self.grid)
 #            for i, tup in enumerate(self.drone_path):
 #                grid[tup[1]][tup[0]] = i
 #            
-#            self.log.log_message(f'i: {i}')
-#            self.log.log_message(len(self.drone_path))
-#            for r in range(len(grid)):
-#                string = ''
-#                for c in range(len(grid[0])):
-#                    string += str(grid[r][c] * len(self.drone_path))
-#                self.log.log_message(string)
+            for r in range(len(grid)):
+                string = ''
+                for c in range(len(grid[0])):
+                    string += str(grid[r][c])
+                self.log.log_message(string)
 
             path = self.path[1:]
             trajectory = self.array_to_trajectory(path)
