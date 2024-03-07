@@ -208,13 +208,13 @@ class AStar(Algorithm):
                 self.point_cloud = transform(self.point_cloud)
                 points = self.point_cloud['point_cloud']
 
-#                self.log.log_message(f"START_POINT")
-#                for r in range(len(points)):
-#                    string = ''
-#                    for c in range(len(points[0])):
-#                        string += str(points[r][c]) + ","
-#                    self.log.log_message(string)
-#                self.log.log_message(f"END_POINT")
+                self.log.log_message(f"START_POINT")
+                for r in range(len(points)):
+                    string = ''
+                    for c in range(len(points[0])):
+                        string += str(points[r][c]) + ","
+                    self.log.log_message(string)
+                self.log.log_message(f"END_POINT")
 
                 z_range = (0, 3)
                 (z_min, z_max) = z_range
