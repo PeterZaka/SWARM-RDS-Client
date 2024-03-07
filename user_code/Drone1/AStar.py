@@ -127,6 +127,8 @@ class AStar(Algorithm):
 
         self.total_points = np.empty((0, 2))
         self.grid = np.zeros((200, 200), dtype=float)
+        self.path = []
+        self.drone_path = []
 
     def run(self, **kwargs) -> None:
         """
@@ -152,20 +154,23 @@ class AStar(Algorithm):
         for key, item in kwargs.items():
             if key == "SWARMPointCloud":
                 self.swarm_point_cloud = item
-                if type(self.swarm_point_cloud.metadata.position).__name__ != "Vector3r":
+                if type(self.swarm_point_cloud.metadata.position).__name__ != "PosVec3":
                     self.log.log_message(f"Position type: {type(self.swarm_point_cloud.metadata.position)}")
+                    self.log.log_message(f"{self.swarm_point_cloud.metadata.position}")
                     self.swarm_point_cloud = None
                     continue
-                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternionr":
+                if type(self.swarm_point_cloud.metadata.orientation).__name__ != "Quaternion":
                     self.log.log_message(f"Orientation type: {type(self.swarm_point_cloud.metadata.orientation)}")
+                    self.log.log_message(f"{self.swarm_point_cloud.metadata.orientation}")
                     self.swarm_point_cloud = None
                     continue
 
             if key == "OccupancyMap":
                 self.obstacle_map = item
 
+
             if key == "AgentState":
-                self.log.log_message(item)
+                self.log.log_message(f"agentstate: {item}")
                 self.position = item.position
 
         if type(self.obstacle_map).__name__ == "NoneType":
@@ -178,44 +183,38 @@ class AStar(Algorithm):
                 "point_cloud" : np.reshape(self.swarm_point_cloud.points, (-1, 3)),
                 "pose" : {
                     "orientation" : {
-                        "w_val" : self.swarm_point_cloud.metadata.orientation.w_val,
-                        "x_val" : self.swarm_point_cloud.metadata.orientation.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.orientation.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.orientation.z_val
+                        "w_val" : self.swarm_point_cloud.metadata.orientation.w,
+                        "x_val" : self.swarm_point_cloud.metadata.orientation.x,
+                        "y_val" : self.swarm_point_cloud.metadata.orientation.y,
+                        "z_val" : self.swarm_point_cloud.metadata.orientation.z
                     },
                     "position" : {
-                        "x_val" : self.swarm_point_cloud.metadata.position.x_val,
-                        "y_val" : self.swarm_point_cloud.metadata.position.y_val,
-                        "z_val" : self.swarm_point_cloud.metadata.position.z_val
+                        "x_val" : self.swarm_point_cloud.metadata.position.X,
+                        "y_val" : self.swarm_point_cloud.metadata.position.Y,
+                        "z_val" : self.swarm_point_cloud.metadata.position.Z
                     }
                 }
             }
 
-#            points = self.point_cloud['point_cloud']
+            self.position.X = self.swarm_point_cloud.metadata.position.X
+            self.position.Y = self.swarm_point_cloud.metadata.position.Y
+#            self.log.log_message(f"actual pos: {self.position}")
 
-#            self.log.log_message(f"START_POINT")
-#            for r in range(len(points)):
-#                string = ''
-#                for c in range(len(points[0])):
-#                    string += str(points[r][c]) + ","
-#                self.log.log_message(string)
-#            self.log.log_message(f"END_POINT")
-
-#            if len(points) != 0:
-#                self.point_cloud = transform(self.point_cloud)
-#                points = self.point_cloud['point_cloud']
-#                for r in range(len(points)):
-#                    string = ''
-#                    for c in range(len(points[0])):
-#                        string += str(points[r][c]) + ","
-#                    self.log.log_message(string)
-
-#                self.log.log_message(f"FINAL_END_POINT")
 
             points = self.point_cloud['point_cloud']
+
+
             if len(points) != 0:
                 self.point_cloud = transform(self.point_cloud)
                 points = self.point_cloud['point_cloud']
+
+                self.log.log_message(f"START_POINT")
+                for r in range(len(points)):
+                    string = ''
+                    for c in range(len(points[0])):
+                        string += str(points[r][c]) + ","
+                    self.log.log_message(string)
+                self.log.log_message(f"END_POINT")
 
                 z_range = (0, 3)
                 (z_min, z_max) = z_range
@@ -225,15 +224,6 @@ class AStar(Algorithm):
                 self.total_points = np.concatenate((self.total_points, points))
 
                 self.grid = point_cloud_to_occupancy_map(self.total_points, (200, 200), 1)
-
-#                self.log.log_message("START GRID")
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#                self.log.log_message("END GRID")
 
 
         if not self.executing_trajectory:
@@ -248,33 +238,47 @@ class AStar(Algorithm):
             # Have to change map_size here for some reason
             self.map_size = (int(len(self.obstacle_map[0])), int(len(self.obstacle_map)))
 
-            points = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
-                                self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
-                                self.grid)
+            if len(self.path) == 0:
+                self.path = self.myalgo(self.calc_real_to_array((self.position.X, self.position.Y)),
+                                    self.calc_real_to_array((self.goal_point.X, self.goal_point.Y)),
+                                    self.grid)
+            else:
+                self.path[0] = self.calc_real_to_array((self.position.X, self.position.Y))
+                self.log.log_message(f"path[0]: {self.path[0]}")
+                self.log.log_message(f"path[1]: {self.calc_array_to_real(self.path[1])}")
 
-            if len(points) == 0:
-#                # Print map
-#                grid = copy.deepcopy(self.grid)
-#                for r in range(len(grid)):
-#                    string = ''
-#                    for c in range(len(grid[0])):
-#                        string += str(grid[r][c])
-#                    self.log.log_message(string)
-#
+                self.path = self.fix_path(self.path, self.grid, [1000, 500, 2.5, 1.1], 5)
+
+                self.log.log_message(f"Path: {self.path}")
+
+            if len(self.path) == 0:
+                self.log.log_message("No path found")
                 self.executing_trajectory = False
                 return Trajectory()
 
-            # Print map with path
-            grid = copy.deepcopy(self.grid)
-            for tup in points:
-                grid[tup[1]][tup[0]] = 2
+            self.log.log_message("obstacle map:")
+            grid = copy.deepcopy(self.obstacle_map)
             for r in range(len(grid)):
                 string = ''
                 for c in range(len(grid[0])):
                     string += str(grid[r][c])
                 self.log.log_message(string)
 
-            trajectory = self.array_to_trajectory(points)
+            # Print map with drone_path
+#            self.drone_path.append(self.calc_real_to_array((self.position.X, self.position.Y)))
+            self.log.log_message("made grid")
+            grid = copy.deepcopy(self.grid)
+#            for i, tup in enumerate(self.drone_path):
+#                grid[tup[1]][tup[0]] = i
+#            
+            for r in range(len(grid)):
+                string = ''
+                for c in range(len(grid[0])):
+                    string += str(grid[r][c])
+                self.log.log_message(string)
+
+            path = self.path[1:]
+            trajectory = self.array_to_trajectory(path)
 
             self.executing_trajectory = False
             return trajectory
@@ -313,7 +317,7 @@ class AStar(Algorithm):
         points = self.prune_path(points)
         points = self.line_of_sight_path(points, cost_grid, 5)
 
-        return points[1:]
+        return points
 
     class Node:
 
@@ -460,7 +464,13 @@ class AStar(Algorithm):
             new_path.append(path[i])
         new_path.append(path[-1])
         return new_path
-    
+
+    def is_blocked(self, point, grid, threshold):
+        cell = grid[point[1], point[0]]
+        if cell >= threshold or cell == 1:
+            return True
+        return False
+
     def is_line_of_sight_blocked(self, start, end, grid, threshold):
         x1, y1 = start
         x2, y2 = end
@@ -472,13 +482,16 @@ class AStar(Algorithm):
         vx = dx / length
         vy = dy / length
 
-        for t in range(1, math.floor(length)):
-            x = round(x1 + t * vx)
-            y = round(y1 + t * vy)
+        for t in range(1, math.floor(length) + 1):
+            x = x1 + t * vx
+            y = y1 + t * vy
 
-            if grid[y, x] >= threshold:
+            floor_cell = (math.floor(x), math.floor(y))
+            ceil_cell = (math.ceil(x), math.ceil(y))
+
+            if self.is_blocked(floor_cell, grid, threshold) or self.is_blocked(ceil_cell, grid, threshold):
                 return True
-        
+
         return False
     
     def line_of_sight_path(self, path, grid, threshold):
@@ -496,6 +509,96 @@ class AStar(Algorithm):
                     break
 
             i += 1
+
+        return new_path
+
+    def get_intersection(self, start, end, grid, threshold):
+        grid = copy.deepcopy(grid)
+
+        x1, y1 = start
+        x2, y2 = end
+
+        start_blocked = grid[y1, x1] >= threshold or grid[y1, x1] == 1
+
+        dy = y2 - y1
+        dx = x2 - x1
+
+        length = math.sqrt(dy**2 + dx**2)
+        vx = dx / length
+        vy = dy / length
+
+        for t in range(1, math.floor(length)):
+            x = x1 + t * vx
+            y = y1 + t * vy
+
+            floor_cell = (math.floor(x), math.floor(y))
+            ceil_cell = (math.ceil(x), math.ceil(y))
+
+            if self.is_blocked(floor_cell, grid, threshold) or self.is_blocked(ceil_cell, grid, threshold):
+                if not start_blocked:
+                    t -= 1
+
+                    x = x1 + t * vx
+                    y = y1 + t * vy
+
+                    round_cell = (round(x), round(y))
+
+                    return round_cell
+            else:
+                if start_blocked:
+                    t += 1
+
+                    x = x1 + t * vx
+                    y = y1 + t * vy
+
+                    round_cell = (round(x), round(y))
+
+                    return round_cell
+
+        return ()
+
+    def fix_path(self, path, grid, costs, threshold):
+        data_cost = self.create_cost_grid(grid, costs)
+
+        # remove duplicates
+        path = list(dict.fromkeys(path))
+
+
+        self.log.log_message(f"a")
+
+        new_points = []
+        for i in range(0, len(path) - 1):
+            new_points.append(path[i])
+            intersection = self.get_intersection(path[i], path[i+1], data_cost, threshold)
+            if len(intersection) != 0:
+                new_points.append(intersection)
+        new_points.append(path[-1])
+
+        self.log.log_message(f"b")
+
+        new_points = [point for point in new_points if not self.is_blocked(point, data_cost, threshold)]
+        new_points.insert(0, path[0])
+        new_points.append(path[-1])
+
+        # remove duplicates
+        new_points = list(dict.fromkeys(new_points))
+
+        new_path = []
+        for i in range(0, len(new_points) - 1):
+            if self.is_line_of_sight_blocked(new_points[i], new_points[i+1], data_cost, threshold):
+                path_between_points = self.calculate_path(new_points[i], new_points[i+1], grid, data_cost)
+            else:
+                path_between_points = [new_points[i], new_points[i+1]]
+
+            new_path += path_between_points[:-1]
+        new_path.append(path[-1])
+
+        self.log.log_message(f"c")
+
+        new_path = self.prune_path(new_path)
+        new_path = self.line_of_sight_path(new_path, data_cost, threshold)
+
+        self.log.log_message(f"d")
 
         return new_path
 
